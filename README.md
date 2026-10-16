@@ -54,7 +54,8 @@ Si `pip install` falla, instala [Homebrew](https://brew.sh) y ejecuta `brew inst
 ## Teclas de Mac (la 🌐)
 
 El AK820 no tiene la tecla 🌐 (Fn/Globo de Mac) y no puede enviarla. Lo resolvemos en macOS:
-`teclas-mac.sh` le dice al Mac que el **Control derecho** del AK820 haga de 🌐.
+`teclas-mac.sh` le dice al Mac que el **Control derecho** del AK820 haga de 🌐, y que **Home** sea F13
+(en *Ajustes del Sistema → Teclado → Atajos de teclado → Capturas de pantalla* se le asigna la captura).
 Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable, Bluetooth y 2.4G.
 
 ```

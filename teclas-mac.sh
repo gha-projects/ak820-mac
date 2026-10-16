@@ -3,7 +3,9 @@
 # de macOS "hidutil". No toca el teclado: es macOS quien traduce la tecla,
 # y solo para este teclado (el del portátil queda igual).
 #
-# Ahora mismo: Control derecho -> 🌐 (Fn/Globo).
+# Ahora mismo:
+#   Control derecho -> 🌐 (Fn/Globo)
+#   Home            -> F13 (en Ajustes del Sistema le asignamos la captura de pantalla)
 # Por qué funciona: la 🌐 es un código propio de Apple (página 0xFF, uso 0x03)
 # que el AK820 no sabe enviar, pero macOS sí acepta como destino.
 #
@@ -11,7 +13,10 @@
 
 CONTROL_DERECHO=0x7000000E4
 GLOBO=0xFF00000003
+HOME=0x70000004A
+F13=0x700000068
 
 /usr/bin/hidutil property --matching '{"VendorID":0x0C45}' --set "{\"UserKeyMapping\":[
-  {\"HIDKeyboardModifierMappingSrc\":$CONTROL_DERECHO,\"HIDKeyboardModifierMappingDst\":$GLOBO}
+  {\"HIDKeyboardModifierMappingSrc\":$CONTROL_DERECHO,\"HIDKeyboardModifierMappingDst\":$GLOBO},
+  {\"HIDKeyboardModifierMappingSrc\":$HOME,\"HIDKeyboardModifierMappingDst\":$F13}
 ]}" >/dev/null
