@@ -51,10 +51,21 @@ solo existe para Windows.
 Si `python3` no existe, macOS te ofrecerá instalar las "herramientas de línea de comandos"; acepta.
 Si `pip install` falla, instala [Homebrew](https://brew.sh) y ejecuta `brew install hidapi`.
 
+## Teclas de Mac (la 🌐)
+
+El AK820 no tiene la tecla 🌐 (Fn/Globo de Mac) y no puede enviarla. Lo resolvemos en macOS:
+`teclas-mac.sh` le dice al Mac que el **Control derecho** del AK820 haga de 🌐.
+Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable, Bluetooth y 2.4G.
+
+```
+./instalar-teclas-mac.sh          # aplicarlo para siempre (también tras reiniciar)
+./instalar-teclas-mac.sh quitar   # volver a como estaba
+```
+
 ## Próximos pasos
 
-1. Temporizador de reposo.
-2. Remapeo de teclas y macros.
+1. Remapeo de teclas y macros dentro del propio teclado (falta descifrar el formato; ver créditos).
+2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
 3. Imágenes en la pantalla (en macOS es lo más difícil).
 
 ## Créditos
