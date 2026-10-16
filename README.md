@@ -8,6 +8,7 @@ solo existe para Windows.
 - `buscar`: comprueba que el Mac ve el teclado. No cambia nada.
 - `reloj`: pone en hora la pantalla del teclado.
 - `luces`: cambia las luces RGB (efecto, color, brillo, velocidad y dirección). Se guarda en el teclado.
+- `imagen` (**experimental, funciona a veces**): pone una foto en la pantalla. Ver [docs/pantalla.md](docs/pantalla.md).
 
 ## Cómo ejecutarlo en tu Mac
 
@@ -63,11 +64,22 @@ Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable
 ./instalar-teclas-mac.sh quitar   # volver a como estaba
 ```
 
+## Imagen en la pantalla (experimental)
+
+```
+python3 ak820.py imagen ~/Desktop/foto.jpg   # cualquier JPG/PNG; se recorta al centro a 128x128
+python3 ak820.py imagen prueba               # franjas de prueba para diagnosticar
+python3 ak820.py reloj                       # volver al reloj (o salir de "loading")
+```
+
+Todavía falla a menudo (sale movida, con rayas, o se queda en "loading").
+Todo lo que sabemos está en [docs/pantalla.md](docs/pantalla.md).
+
 ## Próximos pasos
 
 1. Remapeo de teclas y macros dentro del propio teclado (falta descifrar el formato; ver créditos).
 2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
-3. Imágenes en la pantalla (en macOS es lo más difícil).
+3. Imágenes en la pantalla: ya llegan desde el Mac, falta que sea fiable (ver [docs/pantalla.md](docs/pantalla.md)).
 
 ## Créditos
 

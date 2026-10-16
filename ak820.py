@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Configurador mínimo del teclado Ajazz AK820 Pro para macOS.
 
-Paso 1: encontrar el teclado y sincronizar el reloj de su pantalla.
+Reloj, luces RGB e imagen de la pantalla.
 
 Cómo funciona, en pocas palabras:
   - El teclado se conecta por USB y expone varias "interfaces HID".
   - macOS se queda con las interfaces de teclado normales, pero deja abrir
-    una interfaz "de fabricante" (usage page 0xFF13) desde un programa normal.
-  - Por esa interfaz mandamos paquetes de 64 bytes ("feature reports").
+    dos interfaces "de fabricante" desde un programa normal:
+      0xFF13 (configuración): paquetes de 64 bytes ("feature reports").
+      0xFF68 (datos): bloques grandes, para las imágenes de la pantalla.
   - Cada cambio es una pequeña conversación: EMPEZAR -> qué vamos a cambiar
     -> los datos -> CONFIRMAR.
 
@@ -28,6 +29,7 @@ import hid  # paquete "hidapi" (pip install hidapi)
 VENDOR_ID = 0x0C45          # SONiX, el fabricante del chip
 PRODUCT_IDS_CABLE = (0x8009, 0x800A)  # AK820 Pro por cable (según el modelo/firmware)
 CONFIG_USAGE_PAGE = 0xFF13  # la interfaz por la que se configura
+DATOS_USAGE_PAGE = 0xFF68   # la interfaz por la que van las imágenes
 
 PACKET_SIZE = 64
 PAUSA = 0.035               # 35 ms entre paquetes, como el programa oficial
@@ -38,6 +40,26 @@ CMD_CONFIRMAR = 0x02        # cierra la conversación y aplica el cambio
 CMD_RELOJ = 0x28
 CMD_LUCES = 0x13
 CMD_GUARDAR = 0xF0          # guarda en la memoria del teclado (sobrevive al apagado)
+CMD_IMAGEN = 0x72
+
+# --- Pantalla ----------------------------------------------------------------
+# Descubierto a base de pruebas con el teclado (octubre de 2026):
+#  - La imagen es de 128x128 píxeles en RGB565 (2 bytes por píxel, little-endian),
+#    precedida de 256 bytes de cabecera (n.º de fotogramas + duración de cada uno).
+#  - Se manda en 9 bloques por la interfaz 0xFF68. Cada bloque son 4096 bytes
+#    seguidos de un paquete corto de exactamente 27 bytes (con otro tamaño, o sin
+#    él, el teclado se queda en "loading" esperando).
+#  - El teclado guarda cada paquete USB en un hueco de 64 bytes, así que el
+#    paquete corto ocupa 64: cada bloque llena 4160 bytes de su memoria. Por eso
+#    la imagen se coloca cada 4160 bytes, no cada 4123.
+#  - Tras cada bloque responde "01 5a 02" (recibido). Hay que esperarlo: si se
+#    manda el siguiente antes, se pierden datos (el primero tarda unos 130 ms).
+PANTALLA = 128
+CABECERA = 256
+BLOQUE = 4096
+COLA = 27
+HUECO_BLOQUE = 4160
+N_BLOQUES = 9
 
 # --- Efectos de luz (byte 0 del paquete de luces) ---------------------------
 # El firmware no tiene "fijo" ni "apagado" de verdad: "fijo" es "respirar" a
@@ -96,11 +118,49 @@ def paquete_luces(efecto, r, g, b, arcoiris, brillo, velocidad, direccion):
     return bytes(p)
 
 
+def pixeles_rgb565(imagen):
+    """Recorta una imagen de Pillow al centro, la deja en 128x128 y la pasa a RGB565."""
+    from PIL import ImageOps
+    imagen = ImageOps.fit(imagen.convert("RGB"), (PANTALLA, PANTALLA))
+    datos = bytearray()
+    for r, g, b in imagen.getdata():
+        datos += (((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)).to_bytes(2, "little")
+    return bytes(datos)
+
+
+def imagen_de_prueba():
+    """8 franjas numeradas de 16 filas (= un bloque cada una) y una raya negra en el centro.
+
+    Si algo falla, la foto dice qué bloque (franja) y cuánto se ha movido (la raya).
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    colores = ["red", "orange", "yellow", "lime", "cyan", "blue", "purple", "magenta"]
+    imagen = Image.new("RGB", (PANTALLA, PANTALLA))
+    dibujo = ImageDraw.Draw(imagen)
+    fuente = ImageFont.load_default(size=13)
+    for n, color in enumerate(colores):
+        y = n * 16
+        dibujo.rectangle((0, y, PANTALLA - 1, y + 15), fill=color)
+        dibujo.text((4, y + 1), str(n + 1), fill="black", font=fuente)
+    dibujo.line((PANTALLA // 2, 0, PANTALLA // 2, PANTALLA - 1), fill="black", width=2)
+    return imagen
+
+
+def bloques_imagen(pixeles):
+    """Cabecera + píxeles, repartidos en los 9 bloques (4096 + 27 bytes cada uno)."""
+    memoria = bytearray(b"\xff" * (N_BLOQUES * HUECO_BLOQUE))
+    memoria[0] = 1          # un fotograma
+    memoria[1] = 50         # su duración (no importa con uno solo)
+    memoria[CABECERA:CABECERA + len(pixeles)] = pixeles
+    return [bytes(memoria[i * HUECO_BLOQUE:i * HUECO_BLOQUE + BLOQUE + COLA])
+            for i in range(N_BLOQUES)]
+
+
 # --- Comunicación con el teclado --------------------------------------------
-def buscar_interfaz():
-    """Devuelve la interfaz de configuración del teclado, o None."""
+def buscar_interfaz(usage_page=CONFIG_USAGE_PAGE):
+    """Devuelve la interfaz del teclado con ese usage page (por defecto, la de configuración)."""
     for info in hid.enumerate(VENDOR_ID):
-        if info["product_id"] in PRODUCT_IDS_CABLE and info["usage_page"] == CONFIG_USAGE_PAGE:
+        if info["product_id"] in PRODUCT_IDS_CABLE and info["usage_page"] == usage_page:
             return info
     return None
 
@@ -188,6 +248,50 @@ def cmd_luces(args):
     return 0
 
 
+def cmd_imagen(args):
+    control_info = buscar_interfaz()
+    datos_info = buscar_interfaz(DATOS_USAGE_PAGE)
+    if control_info is None or datos_info is None:
+        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+        return 1
+    from PIL import Image
+    if args.archivo == "prueba":
+        imagen = imagen_de_prueba()
+    else:
+        imagen = Image.open(args.archivo)
+    bloques = bloques_imagen(pixeles_rgb565(imagen))
+
+    control = hid.device()
+    control.open_path(control_info["path"])
+    datos = hid.device()
+    datos.open_path(datos_info["path"])
+    try:
+        enviar(control, paquete_control(CMD_EMPEZAR))
+        enviar(control, paquete_control(CMD_IMAGEN, byte2=0x02, byte8=N_BLOQUES))
+        # Tras el aviso el teclado prepara su memoria; si el primer paquete llega
+        # antes, lo pierde y toda la imagen sale corrida 32 píxeles.
+        time.sleep(0.3)
+        for n, bloque in enumerate(bloques, 1):
+            datos.write(b"\x00" + bloque[:BLOQUE])
+            datos.write(b"\x00" + bloque[BLOQUE:])
+            if not datos.read(PACKET_SIZE + 1, 3000):   # espera el "recibido"
+                print(f"El teclado no ha confirmado el bloque {n}/{N_BLOQUES}.")
+                print("Vuelve a la pantalla normal con: python3 ak820.py reloj")
+                return 1
+            # "Recibido" no es "guardado": si el siguiente bloque llega mientras
+            # aún lo guarda, se cuelan trozos del anterior (rayitas de su color).
+            time.sleep(0.5)
+            print(f"  bloque {n}/{N_BLOQUES} enviado")
+        enviar(control, paquete_control(CMD_GUARDAR))
+        time.sleep(0.1)
+    finally:
+        control.close()
+        datos.close()
+    print("Imagen enviada. Mira la pantalla del teclado.")
+    print("Para volver al reloj: python3 ak820.py reloj")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Configurador del Ajazz AK820 Pro para Mac")
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -201,8 +305,11 @@ def main():
     l.add_argument("--velocidad", type=int, default=3, help="0 a 5 (por defecto 3)")
     l.add_argument("--direccion", choices=DIRECCIONES, default="izquierda")
     l.add_argument("--arcoiris", action="store_true", help="usar todos los colores en vez de uno")
+    i = sub.add_parser("imagen", help="EXPERIMENTAL (funciona a veces): poner una imagen en la pantalla")
+    i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     args = parser.parse_args()
-    return {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces}[args.comando](args)
+    ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces, "imagen": cmd_imagen}
+    return ordenes[args.comando](args)
 
 
 if __name__ == "__main__":
