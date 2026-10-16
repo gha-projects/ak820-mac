@@ -47,15 +47,16 @@ CMD_IMAGEN = 0x72
 # nurlanjalil/ajazz-ak820-config y aar-rafi/aks075-linux):
 #  - Imagen de 128x128 píxeles en RGB565 (2 bytes por píxel, little-endian),
 #    precedida de 256 bytes de cabecera (n.º de fotogramas + duración de cada uno).
-#  - EMPEZAR (byte 8 = 0) y aviso 0x72 con subcomando 0x03 y el n.º de bloques.
-#    (gohv usa 0x02, que en el modelo 0x800A deja la pantalla en "loading".)
+#  - EMPEZAR (byte 8 = 0) y aviso 0x72 con el "hueco" de imagen y el n.º de bloques.
+#    En el programa oficial el hueco es la posición elegida en su lista + 1
+#    (LCDViewList::GetCurSel() + 1), así que el primero es el 1.
 #  - 9 bloques de 4096 bytes por la interfaz 0xFF68. Tras cada uno el teclado
 #    responde "01 5a 02" (recibido) y hay que esperarlo antes del siguiente.
 #  - Se cierra con CONFIRMAR (0x02). Nada de GUARDAR (0xF0): estropea la imagen.
 PANTALLA = 128
 CABECERA = 256
 BLOQUE = 4096
-SUB_IMAGEN = 0x03
+HUECO_IMAGEN = 1
 
 # --- Efectos de luz (byte 0 del paquete de luces) ---------------------------
 # El firmware no tiene "fijo" ni "apagado" de verdad: "fijo" es "respirar" a
@@ -146,7 +147,7 @@ def bloques_imagen(pixeles):
     """Cabecera + píxeles, rellenado con 0xFF hasta completar bloques de 4096 bytes."""
     cabecera = bytearray(b"\xff" * CABECERA)
     cabecera[0] = 1         # un fotograma
-    cabecera[1] = 0         # su duración (0 = imagen fija)
+    cabecera[1] = 1         # su duración en pasos de 2 ms (el programa oficial pone 1 como mínimo)
     datos = bytes(cabecera) + pixeles
     n = -(-len(datos) // BLOQUE)            # bloques necesarios (9 para una imagen)
     datos += b"\xff" * (n * BLOQUE - len(datos))
@@ -264,7 +265,7 @@ def cmd_imagen(args):
     datos.open_path(datos_info["path"])
     try:
         enviar(control, paquete_control(CMD_EMPEZAR, byte8=0x00))
-        enviar(control, paquete_control(CMD_IMAGEN, byte2=SUB_IMAGEN, byte8=len(bloques)))
+        enviar(control, paquete_control(CMD_IMAGEN, byte2=HUECO_IMAGEN, byte8=len(bloques)))
         for n, bloque in enumerate(bloques, 1):
             datos.write(b"\x00" + bloque)
             if not datos.read(PACKET_SIZE + 1, 3000):   # espera el "recibido"

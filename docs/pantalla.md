@@ -61,13 +61,40 @@ Es decir: **recibe la imagen entera y la rechaza al final**. Coincide con
 en el modelo 0x800A las imágenes salen corruptas. Algo cambia en esta revisión
 (cabecera, tamaño o comprobación final) y nadie lo ha documentado aún.
 
-`ak820.py imagen` usa ahora el formato oficial (hueco `0x03`), que es el más limpio,
-aunque en el 0x800A todavía no se muestra.
+`ak820.py imagen` usa ahora la secuencia exacta del programa oficial (ver abajo),
+aunque en el 0x800A todavía no se ve la imagen.
+
+## Lo que hace el programa oficial (análisis del instalador v1.0.0.5)
+
+Del instalador oficial "AJAZZ AK820 PRO … 0.85英寸彩屏 … V1.0.0.5" (Inno Setup; se
+extrae sin ejecutarlo descomprimiendo sus bloques LZMA y deshaciendo el filtro de
+llamadas x86 de Inno) salen:
+
+- `config.xml`: **el 0x800A está declarado igual que el 0x8009**, con la misma pantalla
+  (`width=128 height=128 gif_headlength=256 gif_maxframes=140`). Así que el programa
+  oficial usa el mismo protocolo para los dos.
+- La función que sube la imagen (`0x422980` en `DeviceDriver.exe`):
+  1. Reserva `256 + fotogramas × 128 × 128 × 2` bytes, todo a `0xFF`.
+     Cabecera: `[0]` = n.º de fotogramas, `[1+i]` = duración/2 **con mínimo 1**.
+  2. `04 18` con el resto a cero (feature report).
+  3. `04 72 HH 00 00 00 00 00 NN nn`: `HH` = **hueco = posición elegida en su lista
+     (`LCDViewList::GetCurSel()`) + 1**; `NNnn` = n.º de bloques.
+  4. Por cada bloque: `WriteFile` de `00` + 4096 bytes, y `ReadFile` del "recibido"
+     con 300 ms de tiempo máximo. Sin pausas ni reintentos.
+  5. `04 02` y nada más.
+- En sus textos, el botón de subir dice **"Save data and upload boot animation"**: lo
+  que se sube es la **animación de arranque**.
+
+Con esa secuencia exacta (hueco 1, duración 1) el teclado confirma los 9 bloques,
+"carga" y vuelve a sus animaciones. Tras desenchufar y volver a enchufar, el arranque
+sigue mostrando la animación de Ajazz. **Falta averiguar** qué hueco se muestra y
+cuándo (o si hay otro comando que lo elige), y qué hace la función auxiliar que envía
+los feature reports (`0x44eed0`).
 
 ## Próximos pasos
 
-1. **Analizar el programa oficial de Windows para el AK820 con PID 0x800A** (la función
-   que sube la imagen): qué comprueba el teclado al final y qué cambia respecto al 0x8009.
+1. **Seguir con el programa oficial**: cuántos huecos hay en su lista, qué comando elige
+   el hueco que se ve en pantalla, y la función auxiliar de los feature reports.
 2. Si hace falta afinar: una **cámara apuntando a la pantalla** que el programa pueda
    leer, para probar variantes sin depender de fotos hechas a mano.
 
