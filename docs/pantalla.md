@@ -85,6 +85,12 @@ llamadas x86 de Inno) salen:
 - En sus textos, el botón de subir dice **"Save data and upload boot animation"**: lo
   que se sube es la **animación de arranque**.
 
+- El "hueco" (`GetCurSel() + 1`) es la posición de la animación elegida en la lista
+  del programa del PC (cada una es una carpeta `led\<fecha>\` con sus GIF), no una
+  zona del teclado. El paquete del reloj lleva ese mismo número en su byte 1
+  (nosotros enviamos 1, como gohv); enviarlo con 2 no cambia lo que se ve.
+- V1.0.0.5 es la versión más reciente del programa oficial para el modelo con pantalla.
+
 Con esa secuencia exacta (hueco 1, duración 1) el teclado confirma los 9 bloques,
 "carga" y vuelve a sus animaciones. Tras desenchufar y volver a enchufar, el arranque
 sigue mostrando la animación de Ajazz. **Falta averiguar** qué hueco se muestra y
@@ -93,8 +99,10 @@ los feature reports (`0x44eed0`).
 
 ## Próximos pasos
 
-1. **Seguir con el programa oficial**: cuántos huecos hay en su lista, qué comando elige
-   el hueco que se ve en pantalla, y la función auxiliar de los feature reports.
+1. **Ejecutar el programa oficial con este teclado** (Windows en una máquina virtual con
+   UTM, pasándole el USB). Si tampoco consigue cambiar la imagen, es un límite del
+   firmware del 0x800A; si lo consigue, registrar sus llamadas (p. ej. con API Monitor)
+   y compararlas con las nuestras.
 2. Si hace falta afinar: una **cámara apuntando a la pantalla** que el programa pueda
    leer, para probar variantes sin depender de fotos hechas a mano.
 
