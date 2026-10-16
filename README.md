@@ -3,10 +3,11 @@
 Configurador casero del teclado **Ajazz AK820 Pro** para macOS. El programa oficial
 solo existe para Windows.
 
-## Qué hace ahora (paso 1)
+## Qué hace ahora
 
 - `buscar`: comprueba que el Mac ve el teclado. No cambia nada.
 - `reloj`: pone en hora la pantalla del teclado.
+- `luces`: cambia las luces RGB (efecto, color, brillo, velocidad y dirección). Se guarda en el teclado.
 
 ## Cómo ejecutarlo en tu Mac
 
@@ -34,13 +35,25 @@ solo existe para Windows.
    ```
    python3 ak820.py reloj --hora "2026-01-01 12:34"
    ```
+6. Cambia las luces. Algunos ejemplos:
+   ```
+   python3 ak820.py luces fijo --color FF0000          # todo rojo fijo
+   python3 ak820.py luces fijo --color 00AAFF --brillo 2   # azul claro, más tenue
+   python3 ak820.py luces respirar --color 8000FF --velocidad 2   # morado que "respira"
+   python3 ak820.py luces rodar --arcoiris --direccion derecha    # ola de colores
+   python3 ak820.py luces apagado                      # apagar las luces
+   ```
+   - El color va en hexadecimal (`RRGGBB`); cualquier "selector de color" de internet te lo da.
+   - Brillo y velocidad van de 0 a 5. Direcciones: `izquierda`, `derecha`, `arriba`, `abajo`
+     (solo algunos efectos, como `rodar`, `desplazar` o `fluir`, las usan).
+   - Para ver todos los efectos: `python3 ak820.py luces --help`
 
 Si `python3` no existe, macOS te ofrecerá instalar las "herramientas de línea de comandos"; acepta.
 Si `pip install` falla, instala [Homebrew](https://brew.sh) y ejecuta `brew install hidapi`.
 
 ## Próximos pasos
 
-1. Luces RGB, brillo y temporizador de reposo.
+1. Temporizador de reposo.
 2. Remapeo de teclas y macros.
 3. Imágenes en la pantalla (en macOS es lo más difícil).
 
