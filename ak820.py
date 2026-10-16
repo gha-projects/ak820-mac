@@ -58,6 +58,55 @@ CABECERA = 256
 BLOQUE = 4096
 HUECO_IMAGEN = 1
 
+# --- Teclas (remapeo dentro del propio teclado) ------------------------------
+# Formato del programa oficial (función 0x418420 de DeviceDriver.exe v1.0.0.5),
+# probado en el teclado (PgDn -> "b"):
+#   EMPEZAR -> 04 11 (capa normal; 04 27 = capa con Fn) con byte 8 = 9
+#   -> tabla de 576 bytes (144 teclas x 4, acaba en AA 55) en 9 paquetes de 64,
+#      sin leer respuesta -> CONFIRMAR -> GUARDAR.
+# Cada tecla ocupa 4 bytes en la posición key_index * 4:
+#   00 00 00 00        = sin cambios (lo de fábrica)
+#   02 00 <código> 00  = escribe esa tecla (código USB HID)
+# Los modificadores (Cmd, Ctrl...) llevan otro formato que aún no está claro:
+# asignarlos a sí mismos los descolocó. Por eso solo se permiten teclas normales.
+CMD_TECLAS = 0x11
+TAM_TABLA_TECLAS = 576
+
+# Posición (key_index) de cada tecla física, sacada de la distribución oficial.
+POSICION_TECLA = {
+    "esc": 1, **{f"f{n}": n + 1 for n in range(1, 13)}, "supr": 119,
+    "`": 19, **{str(n % 10): 19 + n for n in range(1, 11)}, "-": 30, "=": 31,
+    "borrar": 103, "inicio": 117, "tab": 37,
+    **dict(zip("qwertyuiop", range(38, 48))), "[": 48, "]": 49, "\\": 67,
+    "repag": 118, "bloqmayus": 55, **dict(zip("asdfghjkl", range(56, 65))),
+    ";": 65, "'": 66, "enter": 85, "avpag": 121,
+    "shift": 73, **dict(zip("zxcvbnm", range(74, 81))), ",": 81, ".": 82, "/": 83,
+    "shift_der": 84, "arriba": 101, "ctrl": 91, "cmd": 92, "alt": 93,
+    "espacio": 94, "alt_der": 95, "ctrl_der": 98,
+    "izquierda": 99, "abajo": 100, "derecha": 102,
+}
+# Otros nombres para las mismas teclas (inglés / rotulado de las teclas).
+for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "delete": "supr",
+                      "backspace": "borrar", "capslock": "bloqmayus", "space": "espacio",
+                      "win": "cmd", "option": "alt"}.items():
+    POSICION_TECLA[alias] = POSICION_TECLA[nombre]
+
+# Teclas que se pueden asignar como destino (códigos USB HID).
+CODIGO_TECLA = {
+    **{c: 0x04 + i for i, c in enumerate("abcdefghijklmnopqrstuvwxyz")},
+    **{str(n % 10): 0x1D + n for n in range(1, 11)},
+    "enter": 0x28, "esc": 0x29, "borrar": 0x2A, "tab": 0x2B, "espacio": 0x2C,
+    "-": 0x2D, "=": 0x2E, "[": 0x2F, "]": 0x30, "\\": 0x31, ";": 0x33, "'": 0x34,
+    "`": 0x35, ",": 0x36, ".": 0x37, "/": 0x38, "bloqmayus": 0x39,
+    **{f"f{n}": 0x39 + n for n in range(1, 13)}, **{f"f{n}": 0x5B + n for n in range(13, 25)},
+    "imprpant": 0x46, "insert": 0x49, "inicio": 0x4A, "repag": 0x4B, "supr": 0x4C,
+    "fin": 0x4D, "avpag": 0x4E, "derecha": 0x4F, "izquierda": 0x50, "abajo": 0x51,
+    "arriba": 0x52,
+}
+for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "end": "fin",
+                      "delete": "supr", "backspace": "borrar", "space": "espacio"}.items():
+    CODIGO_TECLA[alias] = CODIGO_TECLA[nombre]
+
 # --- Efectos de luz (byte 0 del paquete de luces) ---------------------------
 # El firmware no tiene "fijo" ni "apagado" de verdad: "fijo" es "respirar" a
 # velocidad 0 y "apagado" es "una tecla" con brillo 0 (igual que la comunidad).
@@ -125,6 +174,15 @@ def pixeles_rgb565(imagen):
     return bytes(datos)
 
 
+def tabla_teclas(cambios):
+    """Tabla de 576 bytes: {posición: código} -> tecla normal; el resto, sin cambios."""
+    tabla = bytearray(TAM_TABLA_TECLAS)
+    for posicion, codigo in cambios.items():
+        tabla[posicion * 4:posicion * 4 + 4] = bytes([0x02, 0x00, codigo, 0x00])
+    tabla[-2:] = b"\xaa\x55"
+    return bytes(tabla)
+
+
 def imagen_de_prueba():
     """8 franjas numeradas de 16 filas (= un bloque cada una) y una raya negra en el centro.
 
@@ -165,6 +223,7 @@ def buscar_interfaz(usage_page=CONFIG_USAGE_PAGE):
 
 def enviar(dispositivo, paquete):
     """Manda un paquete y lee la respuesta (el teclado lo necesita para actuar)."""
+    time.sleep(PAUSA)       # el programa oficial también espera antes de cada orden
     # hidapi pide delante el número de "report", que aquí es 0.
     dispositivo.send_feature_report(bytes([0x00]) + paquete)
     time.sleep(PAUSA)
@@ -246,6 +305,48 @@ def cmd_luces(args):
     return 0
 
 
+def cmd_teclas(args):
+    if args.cambios == ["lista"]:
+        print("Teclas que se pueden cambiar (origen):")
+        print("  " + " ".join(sorted(POSICION_TECLA)))
+        print("Lo que pueden escribir (destino):")
+        print("  " + " ".join(sorted(CODIGO_TECLA)))
+        return 0
+    cambios = {}
+    if args.cambios != ["restaurar"]:
+        for cambio in args.cambios:
+            origen, _, destino = cambio.lower().partition("=")
+            if origen not in POSICION_TECLA or destino not in CODIGO_TECLA:
+                print(f"No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista")
+                return 1
+            cambios[POSICION_TECLA[origen]] = CODIGO_TECLA[destino]
+    info = buscar_interfaz()
+    if info is None:
+        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+        return 1
+
+    tabla = tabla_teclas(cambios)
+    dispositivo = hid.device()
+    dispositivo.open_path(info["path"])
+    try:
+        enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
+        enviar(dispositivo, paquete_control(CMD_TECLAS, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
+        for i in range(0, TAM_TABLA_TECLAS, PACKET_SIZE):
+            # Los trozos de la tabla van seguidos y sin leer respuesta (como el oficial).
+            dispositivo.send_feature_report(bytes([0x00]) + tabla[i:i + PACKET_SIZE])
+            time.sleep(PAUSA)
+        enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
+    finally:
+        dispositivo.close()
+    if cambios:
+        print("Teclas cambiadas en el teclado:", ", ".join(args.cambios))
+        print("(Cada vez se manda la tabla entera: los cambios anteriores se sustituyen.)")
+    else:
+        print("Todas las teclas vuelven a ser las de fábrica.")
+    return 0
+
+
 def cmd_imagen(args):
     control_info = buscar_interfaz()
     datos_info = buscar_interfaz(DATOS_USAGE_PAGE)
@@ -298,8 +399,12 @@ def main():
     l.add_argument("--arcoiris", action="store_true", help="usar todos los colores en vez de uno")
     i = sub.add_parser("imagen", help="EXPERIMENTAL (funciona a veces): poner una imagen en la pantalla")
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
+    t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
+    t.add_argument("cambios", nargs="+",
+                   help="origen=destino (p. ej. avpag=b), 'restaurar' o 'lista'")
     args = parser.parse_args()
-    ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces, "imagen": cmd_imagen}
+    ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
+               "imagen": cmd_imagen, "teclas": cmd_teclas}
     return ordenes[args.comando](args)
 
 

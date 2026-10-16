@@ -8,6 +8,7 @@ solo existe para Windows.
 - `buscar`: comprueba que el Mac ve el teclado. No cambia nada.
 - `reloj`: pone en hora la pantalla del teclado.
 - `luces`: cambia las luces RGB (efecto, color, brillo, velocidad y dirección). Se guarda en el teclado.
+- `teclas`: cambia lo que escribe cada tecla **dentro del propio teclado** (vale en cualquier ordenador). Ver [docs/teclas.md](docs/teclas.md).
 - `imagen` (**experimental, funciona a veces**): pone una foto en la pantalla. Ver [docs/pantalla.md](docs/pantalla.md).
 
 ## Cómo ejecutarlo en tu Mac
@@ -64,6 +65,19 @@ Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable
 ./instalar-teclas-mac.sh quitar   # volver a como estaba
 ```
 
+## Cambiar teclas dentro del teclado
+
+```
+python3 ak820.py teclas avpag=b            # PgDn escribe "b"
+python3 ak820.py teclas repag=f14 avpag=f15
+python3 ak820.py teclas restaurar          # todas de fábrica
+python3 ak820.py teclas lista              # nombres de teclas
+```
+
+Cada vez se manda la tabla entera, así que pon todos los cambios en la misma orden.
+Como destino, por ahora, solo teclas normales (no Cmd/Ctrl/Option). Detalles en
+[docs/teclas.md](docs/teclas.md).
+
 ## Imagen en la pantalla (experimental)
 
 ```
@@ -77,7 +91,7 @@ Todo lo que sabemos está en [docs/pantalla.md](docs/pantalla.md).
 
 ## Próximos pasos
 
-1. Remapeo de teclas y macros dentro del propio teclado (falta descifrar el formato; ver créditos).
+1. Teclas: modificadores, capa con Fn, multimedia y macros (ver [docs/teclas.md](docs/teclas.md)).
 2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
 3. Imágenes en la pantalla: ya llegan desde el Mac, falta que sea fiable (ver [docs/pantalla.md](docs/pantalla.md)).
 
