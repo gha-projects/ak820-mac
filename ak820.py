@@ -9,7 +9,7 @@ Cómo funciona, en pocas palabras:
     una interfaz "de fabricante" (usage page 0xFF13) desde un programa normal.
   - Por esa interfaz mandamos paquetes de 64 bytes ("feature reports").
   - Cada cambio es una pequeña conversación: EMPEZAR -> qué vamos a cambiar
-    -> los datos -> TERMINAR.
+    -> los datos -> CONFIRMAR.
 
 El protocolo lo descifró la comunidad (proyectos con licencia MIT):
 gohv/EPOMAKER-Ajazz-AK820-Pro, TaxMachine/ajazz-keyboard-software-linux,
@@ -26,7 +26,7 @@ import hid  # paquete "hidapi" (pip install hidapi)
 
 # --- Identificación del teclado ---------------------------------------------
 VENDOR_ID = 0x0C45          # SONiX, el fabricante del chip
-PRODUCT_ID_CABLE = 0x8009   # AK820 Pro conectado por cable
+PRODUCT_IDS_CABLE = (0x8009, 0x800A)  # AK820 Pro por cable (según el modelo/firmware)
 CONFIG_USAGE_PAGE = 0xFF13  # la interfaz por la que se configura
 
 PACKET_SIZE = 64
@@ -34,7 +34,7 @@ PAUSA = 0.035               # 35 ms entre paquetes, como el programa oficial
 
 # --- Comandos (byte 1 de los paquetes de control) ---------------------------
 CMD_EMPEZAR = 0x18
-CMD_TERMINAR = 0xF0
+CMD_CONFIRMAR = 0x02        # cierra la conversación y aplica el cambio
 CMD_RELOJ = 0x28
 
 
@@ -68,8 +68,8 @@ def paquete_hora(t):
 # --- Comunicación con el teclado --------------------------------------------
 def buscar_interfaz():
     """Devuelve la interfaz de configuración del teclado, o None."""
-    for info in hid.enumerate(VENDOR_ID, PRODUCT_ID_CABLE):
-        if info["usage_page"] == CONFIG_USAGE_PAGE:
+    for info in hid.enumerate(VENDOR_ID):
+        if info["product_id"] in PRODUCT_IDS_CABLE and info["usage_page"] == CONFIG_USAGE_PAGE:
             return info
     return None
 
@@ -97,7 +97,7 @@ def cmd_buscar(_args):
         print(f"  PID 0x{i['product_id']:04X}  interfaz {i['interface_number']}  "
               f"usage page 0x{i['usage_page']:04X}  {i['product_string']}{marca}")
     if buscar_interfaz() is None:
-        print("\nNo aparece la interfaz de configuración (PID 0x8009, 0xFF13).")
+        print("\nNo aparece la interfaz de configuración (PID 0x8009/0x800A, 0xFF13).")
         print("Si estás por Bluetooth o con el receptor 2.4G, conéctalo por cable.")
         return 1
     print("\nTodo bien: el teclado está listo para configurarse.")
@@ -120,7 +120,8 @@ def cmd_reloj(args):
         enviar(dispositivo, paquete_control(CMD_EMPEZAR))
         enviar(dispositivo, paquete_control(CMD_RELOJ))
         enviar(dispositivo, paquete_hora(t))
-        enviar(dispositivo, paquete_control(CMD_TERMINAR))
+        enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        time.sleep(0.1)     # margen para que el teclado aplique la hora
     finally:
         dispositivo.close()
     print(f"Reloj del teclado puesto a {t:%d/%m/%Y %H:%M:%S}. Mira la pantalla.")

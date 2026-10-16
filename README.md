@@ -13,7 +13,7 @@ solo existe para Windows.
 1. Conecta el teclado **por cable USB-C** (ni Bluetooth ni el receptor 2.4G sirven para configurar).
 2. Abre la app **Terminal** y entra en la carpeta del proyecto:
    ```
-   cd ~/Downloads/ak820-mac
+   cd ~/Proyectos/ak820-mac
    ```
 3. La primera vez, prepara Python e instala la librería para hablar con dispositivos USB:
    ```
