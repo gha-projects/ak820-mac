@@ -1,8 +1,21 @@
 # Imagen en la pantalla desde macOS: lo que sabemos
 
-Estado (17 de octubre de 2026): **funciona a veces** (solo con el método de 4096 + 27, ver abajo). Hemos mostrado imágenes casi
-perfectas en la pantalla desde el Mac, pero repetir exactamente el mismo envío no siempre
-da el mismo resultado. Es un problema de **ritmo**, no de formato.
+Estado (17 de octubre de 2026): **funciona** en el AK820 con PID 0x800A, por cable
+(`python3 ak820.py imagen foto.png`).
+
+## La solución, en corto
+
+Formato exacto del programa oficial (sacado de su código, ver más abajo):
+
+1. `04 18` (byte 8 = 0) → `04 72 01 00 00 00 00 00 09 00` (9 bloques)
+2. 9 bloques de 4096 bytes por la interfaz 0xFF68, esperando tras cada uno el
+   "recibido" (`01 5a 02`): 256 bytes de cabecera (`[0]=1` fotograma, `[1]=1`, resto
+   `FF`) + 128×128 píxeles RGB565 little-endian + relleno `FF`
+3. `04 02` — y nada de `F0`
+
+**Y esperar 35 ms antes de cada orden**, como hace el programa oficial. Sin esa pausa
+el teclado ignora el `04 02` final: la pantalla "carga" y vuelve a sus animaciones.
+Ese detalle es lo que nos tuvo toda la noche dando vueltas; lo que sigue es la historia.
 
 Los repos de la comunidad daban la subida de imágenes por imposible en macOS ("la
 interfaz 0xFF68 se cuelga"). No lo es: solo hay que avisar antes al teclado.

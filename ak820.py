@@ -53,6 +53,8 @@ CMD_IMAGEN = 0x72
 #  - 9 bloques de 4096 bytes por la interfaz 0xFF68. Tras cada uno el teclado
 #    responde "01 5a 02" (recibido) y hay que esperarlo antes del siguiente.
 #  - Se cierra con CONFIRMAR (0x02). Nada de GUARDAR (0xF0): estropea la imagen.
+#  - Clave: esperar 35 ms ANTES de cada orden (lo hace enviar()). Sin esa pausa
+#    el teclado ignora el CONFIRMAR final, "carga" y vuelve a sus animaciones.
 PANTALLA = 128
 CABECERA = 256
 BLOQUE = 4096
@@ -397,7 +399,7 @@ def main():
     l.add_argument("--velocidad", type=int, default=3, help="0 a 5 (por defecto 3)")
     l.add_argument("--direccion", choices=DIRECCIONES, default="izquierda")
     l.add_argument("--arcoiris", action="store_true", help="usar todos los colores en vez de uno")
-    i = sub.add_parser("imagen", help="EXPERIMENTAL (funciona a veces): poner una imagen en la pantalla")
+    i = sub.add_parser("imagen", help="poner una imagen en la pantalla del teclado")
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
     t.add_argument("cambios", nargs="+",

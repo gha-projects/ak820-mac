@@ -9,7 +9,7 @@ solo existe para Windows.
 - `reloj`: pone en hora la pantalla del teclado.
 - `luces`: cambia las luces RGB (efecto, color, brillo, velocidad y dirección). Se guarda en el teclado.
 - `teclas`: cambia lo que escribe cada tecla **dentro del propio teclado** (vale en cualquier ordenador). Ver [docs/teclas.md](docs/teclas.md).
-- `imagen` (**experimental, funciona a veces**): pone una foto en la pantalla. Ver [docs/pantalla.md](docs/pantalla.md).
+- `imagen`: pone una foto o dibujo en la pantalla del teclado. Ver [docs/pantalla.md](docs/pantalla.md).
 
 ## Cómo ejecutarlo en tu Mac
 
@@ -78,7 +78,7 @@ Cada vez se manda la tabla entera, así que pon todos los cambios en la misma or
 Como destino, por ahora, solo teclas normales (no Cmd/Ctrl/Option). Detalles en
 [docs/teclas.md](docs/teclas.md).
 
-## Imagen en la pantalla (experimental)
+## Imagen en la pantalla
 
 ```
 python3 ak820.py imagen ~/Desktop/foto.jpg   # cualquier JPG/PNG; se recorta al centro a 128x128
@@ -86,14 +86,13 @@ python3 ak820.py imagen prueba               # franjas de prueba para diagnostic
 python3 ak820.py reloj                       # volver al reloj (o salir de "loading")
 ```
 
-Todavía falla a menudo (sale movida, con rayas, o se queda en "loading").
-Todo lo que sabemos está en [docs/pantalla.md](docs/pantalla.md).
+Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla.md](docs/pantalla.md).
 
 ## Próximos pasos
 
 1. Teclas: modificadores, capa con Fn, multimedia y macros (ver [docs/teclas.md](docs/teclas.md)).
 2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
-3. Imágenes en la pantalla: ya llegan desde el Mac, falta que sea fiable (ver [docs/pantalla.md](docs/pantalla.md)).
+3. GIFs animados en la pantalla (el formato ya admite varios fotogramas).
 
 ## Créditos
 
