@@ -1,6 +1,6 @@
 # Imagen en la pantalla desde macOS: lo que sabemos
 
-Estado (17 de octubre de 2026): **funciona a veces**. Hemos mostrado imágenes casi
+Estado (17 de octubre de 2026): **funciona a veces** (solo con el método de 4096 + 27, ver abajo). Hemos mostrado imágenes casi
 perfectas en la pantalla desde el Mac, pero repetir exactamente el mismo envío no siempre
 da el mismo resultado. Es un problema de **ritmo**, no de formato.
 
@@ -39,10 +39,35 @@ por cada bloque).
 Las rayitas "del color de la franja de arriba" indican que llegan datos de un bloque
 mientras el teclado aún guarda el anterior: "recibido" no significa "guardado".
 
+## Formato oficial encontrado en internet (17/10, madrugada)
+
+[nurlanjalil/ajazz-ak820-config](https://github.com/nurlanjalil/ajazz-ak820-config)
+documenta el formato del programa oficial (grabación USB + análisis, hecho sobre el
+AKS075, hermano del AK820): EMPEZAR con byte 8 = `0x00`; aviso `04 72 03` + n.º de
+bloques; 9 bloques de 4096 bytes esperando el "recibido" de cada uno; cabecera con
+`[0]=1` fotograma y `[1]=0`; cierre con `04 02` y **sin** `F0`. Otro proyecto
+([allshouldbeready/ak820-pro-macos](https://github.com/allshouldbeready/ak820-pro-macos))
+llama "hueco" (slot) al byte `03`/`02` del aviso.
+
+Resultado en nuestro teclado (PID 0x800A), probado con el formato oficial completo:
+
+| Hueco | Resultado |
+|---|---|
+| `0x03` | Los 9 bloques confirmados; la pantalla "carga" y luego vuelve a las animaciones de Ajazz |
+| `0x02` | Igual |
+
+Es decir: **recibe la imagen entera y la rechaza al final**. Coincide con
+[la incidencia #6 de gohv](https://github.com/gohv/EPOMAKER-Ajazz-AK820-Pro/issues/6):
+en el modelo 0x800A las imágenes salen corruptas. Algo cambia en esta revisión
+(cabecera, tamaño o comprobación final) y nadie lo ha documentado aún.
+
+`ak820.py imagen` usa ahora el formato oficial (hueco `0x03`), que es el más limpio,
+aunque en el 0x800A todavía no se muestra.
+
 ## Próximos pasos
 
-1. **Analizar el programa oficial de Windows** (la función que sube la imagen) para ver
-   el ritmo exacto, el tamaño real de cada bloque y cómo se cierra la subida.
+1. **Analizar el programa oficial de Windows para el AK820 con PID 0x800A** (la función
+   que sube la imagen): qué comprueba el teclado al final y qué cambia respecto al 0x8009.
 2. Si hace falta afinar: una **cámara apuntando a la pantalla** que el programa pueda
    leer, para probar variantes sin depender de fotos hechas a mano.
 
