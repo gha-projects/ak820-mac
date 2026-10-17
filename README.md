@@ -70,8 +70,10 @@ teclas de fábrica.
    python3 ak820_app.py
    ```
 
-Cada opción avisa con una notificación al terminar. Como siempre, el teclado tiene que
-estar **por cable**. Para el remapeo de teclas y las macros sigue haciendo falta la
+Mientras trabaja, el icono pasa a **⌨︎…** (o al % enviado, con las imágenes). Cuando
+acaba bien sale **⌨︎ ✓** unos segundos; si algo falla, una ventana explica qué pasa. Lo
+que va haciendo se guarda en `~/Library/Logs/ak820-app.log`. Como siempre, el teclado
+tiene que estar **por cable** (y en modo cable, no en Bluetooth ni 2.4G). Para el remapeo de teclas y las macros sigue haciendo falta la
 terminal (`python3 ak820.py teclas ...`).
 
 ## Teclas de Mac (la 🌐)

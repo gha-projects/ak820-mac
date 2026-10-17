@@ -2,19 +2,26 @@
 """App de la barra de menús para el Ajazz AK820 (usa ak820.py por debajo).
 
 Cada opción del menú llama a ak820.main([...]) en un hilo aparte (para no
-congelar el menú), recoge lo que imprime y lo enseña como notificación.
+congelar el menú) y recoge lo que imprime. Si sale bien, el icono muestra ✓
+unos segundos; si falla (o la opción es para consultar algo), sale una ventana
+con el mensaje. No se usan notificaciones: macOS no enseña las de un Python
+suelto sin permiso. Lo que imprime ak820.py se copia también a la salida
+estándar, que 'Abrir AK820.command' guarda en ~/Library/Logs/ak820-app.log.
 Solo se hace una operación a la vez: el teclado no admite dos conversaciones
 seguidas sin terminar la anterior.
 
-Los cambios de la interfaz (título, notificaciones) se hacen siempre desde el
+Los cambios de la interfaz (título, ventanas) se hacen siempre desde el
 hilo principal, con un temporizador que recoge lo que dejan los hilos.
 """
 import contextlib
 import io
 import os
 import queue
+import re
 import subprocess
+import sys
 import threading
+import time
 
 import rumps
 
@@ -25,6 +32,9 @@ GUIA_TECLAS = os.path.join(CARPETA, "docs", "teclas.md")
 
 TITULO = "⌨︎"
 TITULO_OCUPADO = "⌨︎…"
+TITULO_HECHO = "⌨︎ ✓"
+SEGUNDOS_HECHO = 3
+PROGRESO = re.compile(r"(\d+) % enviado")
 
 COLORES = {
     "Rojo": "FF0000", "Verde": "00FF00", "Azul": "0000FF", "Blanco": "FFFFFF",
@@ -65,40 +75,58 @@ def args_restaurar_teclas():
     return [["teclas", "restaurar"], ["teclas", "--fn", "restaurar"]]
 
 
-def resumen(salida, codigo, solo_ultima=False):
-    """Las líneas útiles de lo que imprime ak820.py, para una notificación."""
+def resumen(salida, codigo, solo_ultima=False, completo=False):
+    """Las líneas útiles de lo que imprime ak820.py, para enseñarlas en una ventana."""
     lineas = [l.strip() for l in salida.splitlines() if l.strip()]
     errores = [l.split("error:", 1)[1].strip() for l in lineas if "error:" in l]
     if errores:                                    # error de argumentos (argparse)
         return "Error: " + errores[-1]
     lineas = [l for l in lineas if "% enviado" not in l and not l.startswith("Para volver")
               and not l.startswith("(Cada vez")]
-    if codigo != 0 and any("No encuentro el teclado" in l or "No veo ningún" in l for l in lineas):
-        return "No encuentro el teclado. Conéctalo por cable USB-C (la configuración no va por Bluetooth)."
-    lineas = lineas[-1:] if solo_ultima else lineas[-3:]
-    return " ".join(lineas) or ("Hecho." if codigo == 0 else "Algo ha fallado.")
+    if codigo != 0 and any(aviso in l for l in lineas
+                           for aviso in ("No encuentro el teclado", "No veo ningún", "No aparece la interfaz")):
+        return ("No encuentro el teclado por cable. Conéctalo con el cable USB-C y ponlo en modo "
+                "cable: por Bluetooth o 2.4G no se puede configurar.")
+    if solo_ultima:
+        lineas = lineas[-1:]
+    elif not completo:
+        lineas = lineas[-3:]
+    return "\n".join(lineas) or ("Hecho." if codigo == 0 else "Algo ha fallado.")
 
 
-def notificar(titulo, mensaje):
-    """Notificación de macOS. Sin identificador de app (Python suelto) usa osascript."""
-    from Foundation import NSBundle
-    if NSBundle.mainBundle().bundleIdentifier():
-        rumps.notification("AK820", titulo, mensaje)
-    else:
-        texto = mensaje.replace("\\", "\\\\").replace('"', '\\"')
-        subtitulo = titulo.replace('"', '\\"')
-        subprocess.run(["osascript", "-e",
-                        f'display notification "{texto}" with title "AK820" subtitle "{subtitulo}"'],
-                       check=False)
+def ventana(titulo, mensaje):
+    """Ventana con un mensaje, delante de todo (la app no tiene icono en el Dock)."""
+    from AppKit import NSApp
+    NSApp.activateIgnoringOtherApps_(True)
+    rumps.alert(title=f"AK820 · {titulo}", message=mensaje, ok="Vale")
+
+
+class Salida(io.StringIO):
+    """Recoge lo que imprime ak820.py, lo copia al registro y apunta el progreso."""
+
+    def __init__(self, al_progresar):
+        super().__init__()
+        self.al_progresar = al_progresar
+
+    def write(self, texto):
+        if sys.__stdout__:
+            sys.__stdout__.write(texto)
+            sys.__stdout__.flush()
+        encontrado = PROGRESO.search(texto)
+        if encontrado:
+            self.al_progresar(int(encontrado.group(1)))
+        return super().write(texto)
 
 
 class AppAK820(rumps.App):
     def __init__(self):
         super().__init__("AK820", title=TITULO, quit_button="Salir")
         self.candado = threading.Lock()
-        self.mensajes = queue.Queue()      # (título, mensaje) que dejan los hilos
+        self.mensajes = queue.Queue()      # (título, mensaje, bien, avisar) que dejan los hilos
         self.estado_teclado = None          # texto para el primer elemento del menú
         self.hilo = None
+        self.progreso = None                # % de la imagen que se está enviando
+        self.hecho_hasta = 0                # hasta cuándo se ve el ✓ en el icono
         self.brillo = 5
         self.ultima_luz = None              # (efecto, color) para reaplicar al cambiar el brillo
 
@@ -168,7 +196,7 @@ class AppAK820(rumps.App):
 
     # --- Acciones ------------------------------------------------------------
     def comprobar(self, _):
-        self.ejecutar("Teclado", [["buscar"]], es_comprobacion=True)
+        self.ejecutar("Teclado", [["buscar"]], es_comprobacion=True, avisar=True)
 
     def reloj(self, _):
         self.ejecutar("Reloj", [["reloj"]])
@@ -191,19 +219,18 @@ class AppAK820(rumps.App):
 
     def accion_sistema(self, opciones):
         def callback(_):
-            self.ejecutar("Sistema", [args_sistema(opciones)])
+            self.ejecutar("Sistema", [args_sistema(opciones)], avisar=True)
         return callback
 
     def accion_reposo(self, minutos):
         def callback(_):
-            self.ejecutar("Reposo", [args_reposo(minutos)])
+            self.ejecutar("Reposo", [args_reposo(minutos)], avisar=True)
         return callback
 
     def imagen(self, _):
         ruta = elegir_imagen()
         if ruta:
-            if self.ejecutar("Pantalla", [args_imagen(ruta)]):
-                notificar("Pantalla", "Enviando… un GIF grande puede tardar hasta 30 s.")
+            self.ejecutar("Pantalla", [args_imagen(ruta)])
 
     def restaurar_teclas(self, _):
         self.ejecutar("Teclas", args_restaurar_teclas())
@@ -212,23 +239,26 @@ class AppAK820(rumps.App):
         subprocess.run(["open", GUIA_TECLAS], check=False)
 
     # --- Ejecución en segundo plano -------------------------------------------
-    def ejecutar(self, titulo, lista_args, es_comprobacion=False):
-        """Lanza una o varias órdenes de ak820.py en un hilo. False si ya hay una en curso."""
+    def ejecutar(self, titulo, lista_args, es_comprobacion=False, avisar=False):
+        """Lanza una o varias órdenes de ak820.py en un hilo. False si ya hay una en curso.
+
+        Con avisar=True el resultado sale en una ventana aunque todo vaya bien."""
         if not self.candado.acquire(blocking=False):
-            notificar(titulo, "Espera: hay otra operación en curso.")
+            ventana(titulo, "Espera: hay otra operación en curso.")
             return False
+        self.progreso = None
         self.title = TITULO_OCUPADO
-        self.hilo = threading.Thread(target=self._trabajo, args=(titulo, lista_args, es_comprobacion),
-                                     daemon=True)
+        self.hilo = threading.Thread(target=self._trabajo,
+                                     args=(titulo, lista_args, es_comprobacion, avisar), daemon=True)
         self.hilo.start()
         return True
 
-    def _trabajo(self, titulo, lista_args, es_comprobacion):
+    def _trabajo(self, titulo, lista_args, es_comprobacion, avisar):
         try:
             mensajes = []
             codigo = 0
             for argumentos in lista_args:
-                salida = io.StringIO()
+                salida = Salida(self.apuntar_progreso)
                 with contextlib.redirect_stdout(salida), contextlib.redirect_stderr(salida):
                     try:
                         codigo = ak820.main(argumentos) or 0
@@ -237,23 +267,37 @@ class AppAK820(rumps.App):
                     except Exception as e:           # p. ej. el teclado se desconecta a medias
                         print(f"Error: {e}")
                         codigo = 1
-                mensajes.append(resumen(salida.getvalue(), codigo, solo_ultima=es_comprobacion))
+                mensajes.append(resumen(salida.getvalue(), codigo, solo_ultima=es_comprobacion,
+                                        completo=avisar))
                 if codigo != 0:
                     break
             if es_comprobacion:
                 self.estado_teclado = ("Teclado: conectado por cable ✓" if codigo == 0
                                        else "Teclado: no está conectado por cable")
-            self.mensajes.put((titulo, " ".join(dict.fromkeys(mensajes))))
+            self.mensajes.put((titulo, "\n".join(dict.fromkeys(mensajes)), codigo == 0, avisar))
         finally:
             self.candado.release()
 
+    def apuntar_progreso(self, porcentaje):
+        self.progreso = porcentaje
+
     def atender(self, _):
         """Temporizador del hilo principal: aplica lo que dejan los hilos."""
-        self.title = TITULO_OCUPADO if self.candado.locked() else TITULO
+        if self.candado.locked():
+            self.title = TITULO_OCUPADO if self.progreso is None else f"⌨︎ {self.progreso} %"
+        elif time.monotonic() < self.hecho_hasta:
+            self.title = TITULO_HECHO
+        else:
+            self.title = TITULO
         if self.estado_teclado:
             self.item_estado.title = self.estado_teclado
         while not self.mensajes.empty():
-            notificar(*self.mensajes.get())
+            titulo, mensaje, bien, avisar = self.mensajes.get()
+            if bien:
+                self.hecho_hasta = time.monotonic() + SEGUNDOS_HECHO
+                self.title = TITULO_HECHO
+            if avisar or not bien:
+                ventana(titulo, mensaje)
 
 
 def elegir_imagen():
