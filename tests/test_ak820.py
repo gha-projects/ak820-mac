@@ -10,6 +10,7 @@ import io
 import json
 import os
 import tempfile
+import threading
 import unittest
 import urllib.error
 import urllib.request
@@ -19,7 +20,7 @@ from unittest import mock
 import ak820
 
 # Órdenes que van seguidas de paquetes de datos sin respuesta (cuántos: byte 8).
-CON_DATOS = {0x11, 0x27, 0x15, 0x17, 0x13, 0x28, 0x23}
+CON_DATOS = {0x11, 0x27, 0x15, 0x17, 0x13, 0x28, 0x23, 0x20}
 
 
 class TecladoFalso:
@@ -380,6 +381,78 @@ class ReceptorSinTeclado(ConTecladoFalso):
         self.assertEqual(codigo, 1)
         self.assertIn("no ha confirmado", salida)
         self.assertEqual(len(self.rx.tramas), 3)                       # lo intenta 3 veces
+
+
+ESPECTRO_FALSO = """#!/bin/sh
+while true; do echo "255 200 150 100 50 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 255"; sleep 0.01; done
+"""
+
+
+class Musica(ConTecladoFalso):
+    def setUp(self):
+        super().setUp()
+        carpeta = tempfile.TemporaryDirectory()
+        self.addCleanup(carpeta.cleanup)
+        ruta = os.path.join(carpeta.name, "espectro")
+        with open(ruta, "w") as f:
+            f.write(ESPECTRO_FALSO)
+        os.chmod(ruta, 0o755)
+        parche = mock.patch.object(ak820, "ruta_espectro", lambda: ruta)
+        parche.start()
+        self.addCleanup(parche.stop)
+
+    def test_colores(self):
+        teclas = ak820.teclas_con_posicion()
+        self.assertEqual(len(teclas), 81)
+        bandas = [255] + [0] * 19 + [255]
+        colores = dict((p, c) for p, *c in ak820.colores_musica(teclas, bandas, "verde-amarillo-rojo", 0))
+        self.assertEqual(colores[ak820.POSICION_LUZ["ctrl"]], [0, 255, 0])      # abajo a la izquierda: verde
+        self.assertEqual(colores[ak820.POSICION_LUZ["esc"]], [255, 0, 0])       # arriba a la izquierda: rojo
+        self.assertEqual(colores[ak820.POSICION_LUZ["g"]], [0, 0, 0])           # en medio, banda en silencio
+
+    def test_por_cable(self):
+        parar = threading.Event()
+        threading.Timer(0.5, parar.set).start()
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(ak820.musica("arcoiris", parar), 0)
+        ordenes = self.teclado.ordenes()
+        self.assertGreater(ordenes.count(0x20), 2)
+        self.assertEqual(set(ordenes), {0x20, 0x02})                  # en vivo: ni 04 18 ni 04 F0
+        cuadro = self.teclado.datos()[-512:]
+        self.assertIn(cuadro[0], ak820.POSICION_LUZ.values())            # [n.º, R, G, B] seguidos
+        self.assertEqual(cuadro[81 * 4:], bytes(512 - 81 * 4))
+
+    def test_servidor(self):
+        import ak820_editor
+        editor = ak820_editor.Editor()
+        bien, _ = editor.empezar_musica("verde-amarillo-rojo")
+        self.assertTrue(bien)
+        threading.Event().wait(0.3)          # (time.sleep no espera en estas pruebas)
+        self.assertEqual(editor.musica_modo, "verde-amarillo-rojo")
+        self.assertEqual(editor.orden(["luces", "fijo"]), (False, ak820_editor.OCUPADO_MUSICA))
+        editor.parar_musica()
+        self.assertIsNone(editor.musica_modo)
+        self.assertFalse(editor.candado.locked())
+        self.assertIn(0x20, self.teclado.ordenes())
+
+
+class MusicaPorReceptor(Musica):
+    receptor = ReceptorFalso
+
+    def test_por_cable(self):
+        pass
+
+    def test_servidor(self):
+        pass
+
+    def test_por_receptor(self):
+        parar = threading.Event()
+        threading.Timer(0.3, parar.set).start()
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(ak820.musica("rojo", parar), 0)
+        trama = self.rx.tramas[-1]
+        self.assertEqual(trama[:6].hex(" "), "0b 18 00 07 00 00")            # orden 0B, 24 bytes, modo rojo (7)
+        self.assertEqual(trama[6:8].hex(" "), "ff c8")
 
 
 class OtrasOrdenes(ConTecladoFalso):

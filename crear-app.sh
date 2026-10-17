@@ -8,6 +8,12 @@ if [ ! -x .venv/bin/python ]; then
 fi
 echo "Instalando lo necesario..."
 .venv/bin/pip install -q -r requirements-app.txt "py2app==0.28.8"
+echo "Compilando el programa que escucha el sonido (modo música)..."
+rm -f musica/espectro
+if ! .venv/bin/python -c "import ak820, sys; sys.exit(0 if ak820.ruta_espectro() else 1)"; then
+  echo "No se ha podido compilar musica/espectro.swift (hacen falta las herramientas de Xcode: xcode-select --install)"
+  exit 1
+fi
 echo "Creando AK820.app (tarda un minuto)..."
 rm -rf build dist
 if ! .venv/bin/python setup.py py2app > build.log 2>&1; then

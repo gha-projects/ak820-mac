@@ -32,12 +32,16 @@ PROGRESO = re.compile(r"(\d+) % enviado")
 COLOR = re.compile(r"^[0-9A-Fa-f]{6}$")
 BLOQUEOS = ("win", "altf4", "alttab")
 OCUPADO = "Espera: hay otra operación en curso con el teclado."
+OCUPADO_MUSICA = "El modo música está en marcha: páralo para cambiar otras cosas."
 SIN_TECLADO = ("No encuentro el teclado. Conéctalo con el cable USB-C o con el receptor 2.4G "
                "(por Bluetooth no se puede configurar).")
 
 
 class Ocupado(Exception):
     """Otra operación (de la ventana o del menú de la app) está usando el teclado."""
+
+    def __init__(self, mensaje=OCUPADO):
+        super().__init__(mensaje)
 
 
 class Copia(io.StringIO):
@@ -72,6 +76,7 @@ def catalogo():
         "direcciones": list(ak820.DIRECCIONES),
         "reposo": list(ak820.REPOSO),
         "modos_fn": list(ak820.MODO_FN),
+        "modos_musica": list(ak820.MODO_MUSICA),
     }
 
 
@@ -196,6 +201,10 @@ class Editor:
         self.clave = secrets.token_urlsafe(18)
         self.servidor = None
         self.progreso = None                         # % de la imagen que se está enviando
+        self.musica_modo = None                      # el modo música en marcha, o None
+        self.musica_error = ""
+        self._parar_musica = threading.Event()
+        self._hilo_musica = None
 
     def iniciar(self):
         """Arranca el servidor en un hilo (si no estaba ya) y devuelve la dirección."""
@@ -221,7 +230,7 @@ class Editor:
         Devuelve (resultado, líneas impresas). Lanza Ocupado si el teclado está en uso.
         """
         if not self.candado.acquire(blocking=False):
-            raise Ocupado()
+            raise Ocupado(OCUPADO_MUSICA if self.musica_modo else OCUPADO)
         self.progreso = None
         try:
             salida = Copia(self.apuntar_progreso)
@@ -244,8 +253,8 @@ class Editor:
                 return e.code if isinstance(e.code, int) else 1
         try:
             codigo, lineas = self._con_teclado(correr)
-        except Ocupado:
-            return False, OCUPADO
+        except Ocupado as e:
+            return False, str(e)
         except Exception as e:                          # p. ej. se desconecta a medias
             return False, f"Error: {e}"
         if codigo != 0 and any("No encuentro el teclado" in l for l in lineas):
@@ -258,8 +267,8 @@ class Editor:
         """Manda la configuración de teclas al teclado. Devuelve (bien, mensaje)."""
         try:
             bien, lineas = self._con_teclado(lambda: ak820.enviar_teclas(config))
-        except Ocupado:
-            return False, OCUPADO
+        except Ocupado as e:
+            return False, str(e)
         except ValueError as e:
             return False, str(e)
         except Exception as e:
@@ -274,8 +283,8 @@ class Editor:
         """Manda los colores tecla a tecla. Devuelve (bien, mensaje)."""
         try:
             bien, lineas = self._con_teclado(lambda: ak820.enviar_colores(config))
-        except Ocupado:
-            return False, OCUPADO
+        except Ocupado as e:
+            return False, str(e)
         except Exception as e:
             return False, f"Error: {e}"
         if bien:
@@ -283,6 +292,43 @@ class Editor:
         if any("No encuentro el teclado" in l for l in lineas):
             return False, SIN_TECLADO
         return False, " ".join(l for l in lineas if "repitiendo" not in l) or "Algo ha fallado."
+
+    # --- Modo música (en un hilo, con el teclado reservado mientras dura) -----------------------
+    def empezar_musica(self, modo):
+        """Pone en marcha el modo música. Devuelve (bien, mensaje)."""
+        if modo not in ak820.MODO_MUSICA:
+            return False, "Modo de música no válido."
+        if self.musica_modo:
+            self.parar_musica()
+        if not self.candado.acquire(blocking=False):
+            return False, OCUPADO
+        self.musica_modo, self.musica_error = modo, ""
+        self._parar_musica.clear()
+
+        def tocar():
+            salida = Copia()
+            try:
+                with contextlib.redirect_stdout(salida):
+                    codigo = ak820.musica(modo, self._parar_musica)
+                if codigo != 0:
+                    lineas = [l.strip() for l in salida.getvalue().splitlines() if l.strip()]
+                    texto = " ".join(lineas[-2:])
+                    self.musica_error = SIN_TECLADO if "No encuentro el teclado" in texto else texto
+            except Exception as e:
+                self.musica_error = f"Error: {e}"
+            finally:
+                self.musica_modo = None
+                self.candado.release()
+
+        self._hilo_musica = threading.Thread(target=tocar, daemon=True)
+        self._hilo_musica.start()
+        return True, "Modo música en marcha."
+
+    def parar_musica(self):
+        self._parar_musica.set()
+        if self._hilo_musica is not None:
+            self._hilo_musica.join(timeout=3)
+        return True, "Modo música parado."
 
     def imagen(self, datos):
         """Pone en la pantalla una imagen o GIF (los bytes del archivo). Devuelve (bien, mensaje)."""
@@ -345,9 +391,10 @@ class Manejador(BaseHTTPRequestHandler):
             return self.responder(200, {
                 "distribucion": distribucion, "config": ak820.cargar_teclas(), "catalogo": catalogo(),
                 "luces": ak820.cargar_luces(), "colores": ak820.cargar_colores(), "pantalla": ak820.modo_pantalla(),
-                "ajustes": ajustes_para_pagina(), "conexion": conexion()})
+                "ajustes": ajustes_para_pagina(), "conexion": conexion(), "musica": editor.musica_modo})
         if ruta == "/api/conexion":
             return self.responder(200, {"conexion": conexion(), "ocupado": editor.candado.locked(),
+                                        "musica": editor.musica_modo, "musica_error": editor.musica_error,
                                         "progreso": editor.progreso})
         self.responder(404, {"error": "no existe"})
 
@@ -403,6 +450,12 @@ class Manejador(BaseHTTPRequestHandler):
                 return self.resultado(False, str(e))
             bien, mensaje = editor.colores(config)
             return self.resultado(bien, mensaje, colores=ak820.cargar_colores(), luces=ak820.cargar_luces())
+        if ruta == "/api/musica":
+            if datos.get("accion") == "parar":
+                bien, mensaje = editor.parar_musica()
+            else:
+                bien, mensaje = editor.empezar_musica(datos.get("modo"))
+            return self.resultado(bien, mensaje, musica=editor.musica_modo)
         if ruta == "/api/apagar":
             bien, mensaje = editor.orden(["luces", "apagado"])
             return self.resultado(bien, mensaje)

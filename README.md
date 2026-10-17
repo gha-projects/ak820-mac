@@ -181,6 +181,26 @@ python3 ak820.py reloj                       # volver al reloj (o salir de "load
 
 Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla.md](docs/pantalla.md).
 
+## Modo música
+
+Las luces siguen el sonido del Mac, como un ecualizador: cada columna de teclas es una
+banda (graves a la izquierda) y se encienden más filas cuanto más fuerte suena.
+
+```
+python3 ak820.py musica                       # hasta Ctrl+C
+python3 ak820.py musica --modo arcoiris       # también: arcoiris-inverso, degradado, ciclo, blanco, rojo...
+python3 ak820.py musica --segundos 30
+```
+
+En la app: Luces → 🎵 Modo música, o la pestaña Luces → 🎵 Música de la ventana.
+
+El sonido lo escucha `musica/espectro` (Swift, se compila solo la primera vez con las
+herramientas de Xcode): usa los "taps" de Core Audio de macOS 14.2+, así que funciona
+también con auriculares, y el permiso que pide macOS es solo el de **grabar el audio del
+sistema**, no la pantalla. Por cable, el programa manda el color de cada tecla en vivo
+(`04 20`, unos 23 cuadros por segundo, sin guardarlo: al parar vuelve el efecto de antes).
+Por el receptor 2.4G manda las 21 bandas y el teclado las dibuja (orden `0B`).
+
 ## Sin cable: el receptor 2.4G
 
 Si el teclado está en modo 2.4G con su receptor, `ak820.py` (y la app) lo usan solos

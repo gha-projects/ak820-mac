@@ -168,6 +168,7 @@ class AppAK820(rumps.App):
         self.ultima_luz = None              # (efecto, color) para reaplicar al cambiar el brillo
         self.editor = ak820_editor.Editor(self.candado)   # se arranca al abrirlo la primera vez
         self.ventana = None                                 # la ventana propia, al abrirla
+        self.error_musica_visto = ""
 
         self.item_estado = rumps.MenuItem("Comprobar teclado", callback=self.comprobar)
         self.items_brillo = {}
@@ -210,6 +211,8 @@ class AppAK820(rumps.App):
         luces.add(rumps.MenuItem("Espectro (arcoíris)", callback=self.accion_luz("espectro")))
         luces.add(rumps.MenuItem("Ola de colores", callback=self.accion_luz("rodar")))
         luces.add(rumps.MenuItem("Apagadas", callback=self.accion_luz("apagado")))
+        self.item_musica = rumps.MenuItem("🎵 Modo música", callback=self.cambiar_musica)
+        luces.add(self.item_musica)
         luces.add(None)
         brillo = rumps.MenuItem("Brillo")
         for n in range(1, 6):
@@ -256,6 +259,14 @@ class AppAK820(rumps.App):
 
     def reloj(self, _):
         self.ejecutar("Reloj", [["reloj"]])
+
+    def cambiar_musica(self, _):
+        if self.editor.musica_modo:
+            self.editor.parar_musica()
+        else:
+            bien, mensaje = self.editor.empezar_musica("verde-amarillo-rojo")
+            if not bien:
+                ventana("Música", mensaje)
 
     def cambiar_hora_auto(self, item):
         item.state = int(not item.state)
@@ -353,7 +364,14 @@ class AppAK820(rumps.App):
 
     def atender(self, _):
         """Temporizador del hilo principal: aplica lo que dejan los hilos."""
-        if self.candado.locked():
+        self.item_musica.state = int(bool(self.editor.musica_modo))
+        if self.editor.musica_error != self.error_musica_visto:
+            self.error_musica_visto = self.editor.musica_error
+            if self.error_musica_visto:
+                ventana("Música", self.error_musica_visto)
+        if self.editor.musica_modo:
+            self.title = "⌨︎ ♪"
+        elif self.candado.locked():
             self.title = TITULO_OCUPADO if self.progreso is None else f"⌨︎ {self.progreso} %"
         elif time.monotonic() < self.hecho_hasta:
             self.title = TITULO_HECHO

@@ -172,6 +172,15 @@
         <label>Dirección <select id="direccion"></select></label>
       </div>
       </div>
+      <div id="musica-panel" hidden>
+        <h2>Modo música</h2>
+        <p class="nota">Las luces siguen el sonido del Mac: cada columna de teclas es una banda, con los
+          graves a la izquierda. La primera vez, macOS pide permiso para «grabar el audio del sistema».
+          Mientras está en marcha no se pueden cambiar otras cosas del teclado.</p>
+        <div class="opciones" id="modos-musica"></div>
+        <div class="botones"><button type="button" class="boton principal" id="boton-musica">▶︎ Empezar</button></div>
+        <p class="estado-linea" id="estado-musica"></p>
+      </div>
       <div id="pintor" hidden>
         <h2>Pinta las teclas</h2>
         <p class="nota">Elige un color y pincha las teclas (o arrastra por encima). Las rayadas están apagadas.</p>
@@ -754,6 +763,7 @@ async function vigilarConexion() {
   try {
     const r = await api("/api/conexion");
     ponerConexion(r.conexion);
+    ponerEstadoMusica(r.musica, r.musica_error);
     if (r.progreso != null) document.getElementById("progreso").value = r.progreso;
   } catch (e) {
     c.textContent = "Ventana sin conexión con la app";
@@ -785,6 +795,10 @@ const NOMBRE_DIRECCION = { izquierda: "Hacia la izquierda", derecha: "Hacia la d
 const MUESTRAS = { FF0000: "Rojo", FF6000: "Naranja", FFD000: "Amarillo", "00FF00": "Verde", "00FFFF": "Cian",
   "0000FF": "Azul", "8000FF": "Morado", FF00FF: "Rosa", FFFFFF: "Blanco" };
 let luces = { efecto: "fijo", color: "0000FF", brillo: 5, velocidad: 3, direccion: "izquierda", arcoiris: false };
+const NOMBRE_MODO_MUSICA = { "verde-amarillo-rojo": "Verde, amarillo y rojo", arcoiris: "Arcoíris",
+  "arcoiris-inverso": "Arcoíris al revés", degradado: "Degradado", ciclo: "Ciclo de colores", blanco: "Blanco",
+  rojo: "Rojo", naranja: "Naranja", amarillo: "Amarillo", verde: "Verde", azul: "Azul" };
+let verMusica = false, musicaModo = null, modoMusicaElegido = "verde-amarillo-rojo", ultimoErrorMusica = "";
 let lucesApagadas = false, enviandoLuces = false, lucesOtraVez = false, esperaLuces = null;
 
 function prepararLuces() {
@@ -798,6 +812,26 @@ function prepararLuces() {
     b.addEventListener("click", () => cambiarLuces({ efecto: e }));
     caja.append(b);
   }
+  const botonMusica = document.createElement("button");
+  botonMusica.type = "button";
+  botonMusica.dataset.efecto = "musica";
+  botonMusica.textContent = "🎵 Música";
+  botonMusica.addEventListener("click", () => { verMusica = true; dibujarLuces(); });
+  caja.append(botonMusica);
+  const modos = document.getElementById("modos-musica");
+  for (const modo of catalogo.modos_musica) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.modoMusica = modo;
+    b.textContent = NOMBRE_MODO_MUSICA[modo] || modo;
+    b.addEventListener("click", () => {
+      modoMusicaElegido = modo;
+      if (musicaModo) ponerMusica(modo); else dibujarLuces();
+    });
+    modos.append(b);
+  }
+  document.getElementById("boton-musica").addEventListener("click", () =>
+    musicaModo ? pararMusica() : ponerMusica(modoMusicaElegido));
   const muestras = document.getElementById("muestras");
   for (const [hexa, nombre] of Object.entries(MUESTRAS).reverse()) {
     const b = document.createElement("button");
@@ -827,7 +861,8 @@ function prepararLuces() {
 
 function dibujarLuces() {
   for (const b of document.querySelectorAll("#efectos button"))
-    b.setAttribute("aria-pressed", String(!lucesApagadas && b.dataset.efecto === luces.efecto));
+    b.setAttribute("aria-pressed", String(b.dataset.efecto === "musica" ? verMusica
+                                          : !verMusica && !lucesApagadas && b.dataset.efecto === luces.efecto));
   for (const b of document.querySelectorAll(".muestra"))
     b.setAttribute("aria-pressed", String(!luces.arcoiris && b.dataset.color === luces.color));
   document.getElementById("color").value = "#" + luces.color.toLowerCase();
@@ -839,15 +874,18 @@ function dibujarLuces() {
   velocidad.disabled = luces.efecto === "fijo";
   document.getElementById("velocidad-valor").textContent = luces.efecto === "fijo" ? "(el efecto Fijo no se mueve)" : `${luces.velocidad} de 5`;
   document.getElementById("direccion").value = luces.direccion;
-  const personal = luces.efecto === "personal" && !lucesApagadas;
-  document.getElementById("controles-efecto").hidden = personal;
+  const personal = luces.efecto === "personal" && !lucesApagadas && !verMusica;
+  document.getElementById("controles-efecto").hidden = personal || verMusica;
   document.getElementById("pintor").hidden = !personal;
+  document.getElementById("musica-panel").hidden = !verMusica;
   if (personal) dibujarPintor();
+  if (verMusica) dibujarMusica();
 }
 
 function cambiarLuces(cambio) {
   Object.assign(luces, cambio);
   lucesApagadas = false;
+  verMusica = false;
   dibujarLuces();
   clearTimeout(esperaLuces);
   if (luces.efecto === "personal") {                // se manda con «Enviar al teclado»
@@ -860,6 +898,7 @@ function cambiarLuces(cambio) {
 async function enviarLuces() {
   if (enviandoLuces) { lucesOtraVez = true; return; }
   enviandoLuces = true;
+  if (musicaModo) await pararMusica();
   const estado = document.getElementById("estado-luces");
   estado.textContent = "Aplicando…";
   try {
@@ -887,6 +926,42 @@ function ponerLuces(guardadas) {
   if (guardadas.efecto === "apagado") { lucesApagadas = true; return; }
   lucesApagadas = false;
   luces = { ...luces, ...guardadas };
+}
+
+// --- Modo música ---------------------------------------------------------------------------------
+function dibujarMusica() {
+  for (const b of document.querySelectorAll("[data-modo-musica]"))
+    b.setAttribute("aria-pressed", String(b.dataset.modoMusica === (musicaModo || modoMusicaElegido)));
+  document.getElementById("boton-musica").textContent = musicaModo ? "■ Parar" : "▶︎ Empezar";
+  document.getElementById("estado-musica").textContent = musicaModo
+    ? `En marcha (${(NOMBRE_MODO_MUSICA[musicaModo] || musicaModo).toLowerCase()}). Pon música en el Mac.` : "";
+}
+
+async function ponerMusica(modo) {
+  try {
+    const r = await api("/api/musica", { accion: "empezar", modo });
+    if (!r.ok) avisar(r.mensaje, "error");
+    musicaModo = r.musica;
+  } catch (e) { avisar(e.message, "error"); }
+  dibujarLuces();
+}
+
+async function pararMusica() {
+  try {
+    const r = await api("/api/musica", { accion: "parar" });
+    musicaModo = r.musica;
+  } catch (e) { avisar(e.message, "error"); }
+  dibujarLuces();
+}
+
+function ponerEstadoMusica(modo, error) {
+  if (error && error !== ultimoErrorMusica) avisar(error, "error");
+  ultimoErrorMusica = error || "";
+  if (modo !== musicaModo) {
+    musicaModo = modo;
+    if (modo) { verMusica = true; modoMusicaElegido = modo; }
+    if (catalogo) dibujarLuces();
+  }
 }
 
 // --- Colores tecla a tecla ------------------------------------------------------------------------
@@ -1174,6 +1249,7 @@ function aplicarEstado(r, primeraVez) {
   if (!enviandoImagen) modoPantalla = r.pantalla;
   if (!ajustes || igual(ajustes, ajustesGuardados)) { ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes); }
   ponerConexion(r.conexion);
+  ponerEstadoMusica(r.musica, "");
   dibujarTeclado();
   dibujarLuces();
   dibujarPantalla();

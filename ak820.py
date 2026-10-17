@@ -19,10 +19,13 @@ Aiacos/ajazz-control-center y gusleig/ajazz-ak820-pro-mac.
 Solo funciona con el teclado conectado por CABLE USB-C (no Bluetooth ni 2.4G).
 """
 import argparse
+import colorsys
 import datetime
 import json
 import os
+import subprocess
 import sys
+import threading
 import time
 
 import hid  # paquete "hidapi" (pip install hidapi)
@@ -148,6 +151,22 @@ PANTALLA_GUARDADA = os.path.expanduser("~/Library/Application Support/ak820-mac/
 CMD_COLORES = 0x23
 COLORES_GUARDADOS = os.path.expanduser("~/Library/Application Support/ak820-mac/colores.json")
 COLORES_DEFECTO = {"fondo": "000000", "teclas": {}, "brillo": 5}
+# Modo música (funciones 0x4333e0, 0x4329e0 y 0x432c20 del programa oficial). El sonido lo
+# escucha musica/espectro (Swift, Core Audio), que escribe 21 bandas de 0 a 255 por línea.
+# - Por cable, el programa calcula el color de cada tecla y lo manda "en vivo", sin guardarlo:
+#   04 20 [8]=8 → 512 bytes con [n.º, R, G, B] de cada tecla seguidos → 04 02, con pausas de
+#   5 y 2 ms (unos 23 cuadros por segundo). Al dejar de mandarlos, vuelve el efecto guardado.
+# - Por el receptor 2.4G se manda el espectro y el teclado lo dibuja: orden 0B con
+#   [modo, fondo, brillo del fondo, 21 bandas]. Los modos son los del programa oficial.
+CMD_EN_VIVO = 0x20
+MODO_MUSICA = {"verde-amarillo-rojo": 1, "arcoiris": 2, "arcoiris-inverso": 3, "degradado": 4,
+               "ciclo": 5, "blanco": 6, "rojo": 7, "naranja": 8, "amarillo": 9, "azul": 0x0A,
+               "verde": 0x0B}
+COLOR_MUSICA = {"blanco": (255, 255, 255), "rojo": (255, 0, 0), "naranja": (255, 96, 0),
+                "amarillo": (255, 208, 0), "azul": (0, 64, 255), "verde": (0, 255, 0)}
+BANDAS_MUSICA = 21
+# Dentro de AK820.app los archivos van en Contents/Resources (RESOURCEPATH).
+CARPETA_RECURSOS = os.environ.get("RESOURCEPATH") or os.path.dirname(os.path.abspath(__file__))
 # Las últimas luces enviadas (para que la ventana de la app enseñe lo que hay puesto).
 LUCES_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/luces.json")
 CAPAS = {"normal": CMD_TECLAS, "fn": CMD_TECLAS_FN}
@@ -676,6 +695,141 @@ def cmd_colores(args):
     return 0
 
 
+# --- Modo música ------------------------------------------------------------------------------
+def ruta_espectro():
+    """El programa que escucha el sonido; si falta y está el código, lo compila (swiftc)."""
+    for ruta in (os.path.join(CARPETA_RECURSOS, "espectro"), os.path.join(CARPETA_RECURSOS, "musica", "espectro")):
+        if os.access(ruta, os.X_OK):
+            return ruta
+    fuente = os.path.join(CARPETA_RECURSOS, "musica", "espectro.swift")
+    destino = os.path.join(CARPETA_RECURSOS, "musica", "espectro")
+    if not os.path.exists(fuente):
+        return None
+    print("Compilando el programa que escucha el sonido (solo la primera vez)...")
+    sdks = sorted((os.path.join(d, n) for d in ["/Library/Developer/CommandLineTools/SDKs"]
+                   if os.path.isdir(d) for n in os.listdir(d)), reverse=True)
+    for sdk in [None] + sdks:                     # el SDK por defecto puede ser más nuevo que swiftc
+        orden = ["swiftc", "-O", "-swift-version", "5", fuente, "-o", destino] + (["-sdk", sdk] if sdk else [])
+        if subprocess.run(orden, capture_output=True).returncode == 0:
+            return destino
+    return None
+
+
+def teclas_con_posicion():
+    """[(posición de la luz, x de 0 a 1, altura de 0 abajo a 1 arriba)] de cada tecla."""
+    with open(os.path.join(CARPETA_RECURSOS, "editor", "distribucion.json"), encoding="utf-8") as f:
+        distribucion = json.load(f)
+    teclas = []
+    for t in distribucion:
+        nombre = t["nombre"] or ("fn" if t["etiqueta"] == "Fn" else None)
+        if nombre in POSICION_LUZ:
+            x = (t["x"] + t["ancho"] / 2) / 610
+            altura = 1 - (t["y"] + t["alto"] / 2) / 236
+            teclas.append((POSICION_LUZ[nombre], x, altura))
+    return teclas
+
+
+def colores_musica(teclas, bandas, modo, instante):
+    """Ecualizador: cada columna de teclas es una banda y se enciende hasta su nivel."""
+    colores = []
+    for posicion, x, altura in teclas:
+        banda = min(BANDAS_MUSICA - 1, int(x * BANDAS_MUSICA))
+        nivel = bandas[banda] / 255
+        fila = min(1.0, altura * 1.08)                 # la fila de abajo se enciende con poco
+        if nivel < 0.08 or fila > nivel:
+            colores.append((posicion, 0, 0, 0))
+            continue
+        if modo == "verde-amarillo-rojo":
+            color = (0, 255, 0) if fila < 0.45 else (255, 200, 0) if fila < 0.75 else (255, 0, 0)
+        elif modo in ("arcoiris", "arcoiris-inverso"):
+            tono = x * 0.8 if modo == "arcoiris" else 0.8 - x * 0.8
+            color = tuple(int(c * 255) for c in colorsys.hsv_to_rgb(tono, 1, 1))
+        elif modo == "degradado":
+            color = tuple(int(c * 255) for c in colorsys.hsv_to_rgb(0.33 * (1 - fila), 1, 1))
+        elif modo == "ciclo":
+            color = tuple(int(c * 255) for c in colorsys.hsv_to_rgb((instante * 0.1 + x * 0.3) % 1, 1, 1))
+        else:
+            color = COLOR_MUSICA[modo]
+        colores.append((posicion,) + color)
+    return colores
+
+
+def cuadro_en_vivo(dispositivo, colores):
+    """Manda un cuadro de colores por tecla sin guardarlo (04 20 → 8 paquetes → 04 02)."""
+    datos = bytearray(512)
+    for i, color in enumerate(colores):
+        datos[i * 4:i * 4 + 4] = bytes(color)
+    for paquete in [paquete_control(CMD_EN_VIVO, byte8=8)] + [bytes(datos[i:i + 64]) for i in range(0, 512, 64)]:
+        dispositivo.send_feature_report(bytes([0x00]) + paquete)
+        time.sleep(0.005 if paquete[:2] == b"\x04\x20" else 0.002)
+    dispositivo.send_feature_report(bytes([0x00]) + paquete_control(CMD_CONFIRMAR, byte8=0x00))
+    time.sleep(0.005)
+    try:
+        dispositivo.get_feature_report(0x00, PACKET_SIZE + 1)
+    except OSError:
+        pass
+
+
+def musica(modo, parar, segundos=None):
+    """Lleva el sonido del Mac al teclado hasta que 'parar' (threading.Event) se activa.
+
+    Devuelve 0 si todo va bien; si no, imprime el motivo y devuelve 1.
+    """
+    programa = ruta_espectro()
+    if programa is None:
+        print("Falta el programa que escucha el sonido (musica/espectro) y no se ha podido compilar.")
+        return 1
+    conexion, dispositivo = abrir_teclado()
+    if conexion is None:
+        return 1
+    escucha = subprocess.Popen([programa], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, text=True, bufsize=1)
+    ultimo = {"bandas": [0] * BANDAS_MUSICA}
+
+    def leer():
+        for linea in escucha.stdout:
+            valores = linea.split()
+            if len(valores) == BANDAS_MUSICA:
+                ultimo["bandas"] = [int(v) for v in valores]
+
+    threading.Thread(target=leer, daemon=True).start()
+    teclas = teclas_con_posicion()
+    inicio = time.time()
+    fallos_24g = 0
+    print(f"Modo música ({modo}) {'por cable' if conexion == 'cable' else 'con el receptor 2.4G'}. "
+          "Para pararlo: Ctrl+C." if segundos is None else f"Modo música ({modo}) durante {segundos} s.")
+    try:
+        while not parar.is_set() and (segundos is None or time.time() - inicio < segundos):
+            if escucha.poll() is not None:
+                print("El programa que escucha el sonido se ha parado: " + escucha.stderr.read().strip())
+                return 1
+            if conexion == "cable":
+                cuadro_en_vivo(dispositivo, colores_musica(teclas, ultimo["bandas"], modo, time.time() - inicio))
+            else:
+                datos = bytes([MODO_MUSICA[modo], 0, 0]) + bytes(ultimo["bandas"])
+                trama = next(tramas_24g(0x0B, datos))
+                dispositivo.write(b"\x00" + trama)
+                fallos_24g = 0 if esperar_eco(dispositivo, trama) else fallos_24g + 1
+                if fallos_24g == 25:
+                    print("El teclado no contesta por el receptor 2.4G: pulsa una tecla para despertarlo.")
+                time.sleep(0.02)
+    finally:
+        escucha.stdin.close()                       # así el programa que escucha se para solo
+        escucha.terminate()
+        dispositivo.close()
+    return 0
+
+
+def cmd_musica(args):
+    parar = threading.Event()
+    try:
+        return musica(args.modo, parar, args.segundos)
+    except KeyboardInterrupt:
+        parar.set()
+        print("\nModo música parado.")
+        return 0
+
+
 def cmd_luces(args):
     color = args.color.lstrip("#")
     r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
@@ -1140,6 +1294,9 @@ def main(argv=None):
     si.add_argument("--bloquear", nargs="+", choices=["win", "altf4", "alttab"], help="bloquear teclas/atajos")
     si.add_argument("--desbloquear", nargs="+", choices=["win", "altf4", "alttab"])
     si.add_argument("--fabrica", action="store_true", help="volver a los ajustes de fábrica")
+    m = sub.add_parser("musica", help="las luces siguen el sonido del Mac (modo música)")
+    m.add_argument("--modo", choices=MODO_MUSICA, default="verde-amarillo-rojo", help="colores del ecualizador")
+    m.add_argument("--segundos", type=int, help="pararlo solo al cabo de N segundos")
     c = sub.add_parser("colores", help="un color para cada tecla (efecto 'personal')")
     c.add_argument("cambios", nargs="*",
                    help="tecla=RRGGBB (p. ej. avpag=FF0000), tecla=defecto, 'restaurar' o 'reenviar'. "
@@ -1163,7 +1320,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo,
-               "sistema": cmd_sistema, "colores": cmd_colores}
+               "sistema": cmd_sistema, "colores": cmd_colores, "musica": cmd_musica}
     return ordenes[args.comando](args)
 
 

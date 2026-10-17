@@ -67,3 +67,11 @@ En modo Mac la tecla rotulada Alt hace de Cmd y la rotulada Win hace de Option.
 | `teclas avpag=texto:hola repag=b` (macro + tabla, 50 tramas en 1,4 s) | ✅ |
 | `reloj --hora "2026-10-17 12:34"` | ✅ la pantalla pone 12:34 |
 | Con el teclado dormido | El receptor no contesta; al pulsar una tecla, vuelve a ir |
+
+## Modo música
+
+| Prueba | Resultado |
+|---|---|
+| Colores en vivo `04 20` (arcoíris que se mueve), por cable | ✅ unos 23 cuadros/s; al parar vuelve el efecto guardado |
+| `musica` por cable con música sonando | ✅ sigue la música y va al ritmo |
+| Espectro `0B` por el receptor 2.4G | (pendiente: el teclado estaba dormido) |
