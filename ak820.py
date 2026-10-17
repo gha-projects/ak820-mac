@@ -157,7 +157,8 @@ COLORES_DEFECTO = {"fondo": "000000", "teclas": {}, "brillo": 5}
 #   04 20 [8]=8 → 512 bytes con [n.º, R, G, B] de cada tecla seguidos → 04 02, con pausas de
 #   5 y 2 ms (unos 23 cuadros por segundo). Al dejar de mandarlos, vuelve el efecto guardado.
 # - Por el receptor 2.4G se manda el espectro y el teclado lo dibuja: orden 0B con
-#   [modo, fondo, brillo del fondo, 21 bandas]. Los modos son los del programa oficial.
+#   [modo, fondo, brillo del fondo, 21 alturas]. Cada altura es cuántas filas de esa
+#   columna se encienden (0 a 6), no la intensidad. Los modos son los del programa oficial.
 CMD_EN_VIVO = 0x20
 MODO_MUSICA = {"verde-amarillo-rojo": 1, "arcoiris": 2, "arcoiris-inverso": 3, "degradado": 4,
                "ciclo": 5, "blanco": 6, "rojo": 7, "naranja": 8, "amarillo": 9, "azul": 0x0A,
@@ -165,6 +166,7 @@ MODO_MUSICA = {"verde-amarillo-rojo": 1, "arcoiris": 2, "arcoiris-inverso": 3, "
 COLOR_MUSICA = {"blanco": (255, 255, 255), "rojo": (255, 0, 0), "naranja": (255, 96, 0),
                 "amarillo": (255, 208, 0), "azul": (0, 64, 255), "verde": (0, 255, 0)}
 BANDAS_MUSICA = 21
+FILAS_TECLADO = 6
 # Dentro de AK820.app los archivos van en Contents/Resources (RESOURCEPATH).
 CARPETA_RECURSOS = os.environ.get("RESOURCEPATH") or os.path.dirname(os.path.abspath(__file__))
 # Las últimas luces enviadas (para que la ventana de la app enseñe lo que hay puesto).
@@ -806,7 +808,9 @@ def musica(modo, parar, segundos=None):
             if conexion == "cable":
                 cuadro_en_vivo(dispositivo, colores_musica(teclas, ultimo["bandas"], modo, time.time() - inicio))
             else:
-                datos = bytes([MODO_MUSICA[modo], 0, 0]) + bytes(ultimo["bandas"])
+                alturas = [0 if v < 20 else min(FILAS_TECLADO, round(v / 255 * FILAS_TECLADO))
+                           for v in ultimo["bandas"]]
+                datos = bytes([MODO_MUSICA[modo], 0, 0]) + bytes(alturas)
                 trama = next(tramas_24g(0x0B, datos))
                 dispositivo.write(b"\x00" + trama)
                 fallos_24g = 0 if esperar_eco(dispositivo, trama) else fallos_24g + 1

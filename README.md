@@ -199,7 +199,8 @@ herramientas de Xcode): usa los "taps" de Core Audio de macOS 14.2+, así que fu
 también con auriculares, y el permiso que pide macOS es solo el de **grabar el audio del
 sistema**, no la pantalla. Por cable, el programa manda el color de cada tecla en vivo
 (`04 20`, unos 23 cuadros por segundo, sin guardarlo: al parar vuelve el efecto de antes).
-Por el receptor 2.4G manda las 21 bandas y el teclado las dibuja (orden `0B`).
+Por el receptor 2.4G manda la altura de cada una de las 21 columnas (0 a 6 filas) y el
+teclado las dibuja (orden `0B`).
 
 ## Sin cable: el receptor 2.4G
 

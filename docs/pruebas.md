@@ -74,4 +74,5 @@ En modo Mac la tecla rotulada Alt hace de Cmd y la rotulada Win hace de Option.
 |---|---|
 | Colores en vivo `04 20` (arcoíris que se mueve), por cable | ✅ unos 23 cuadros/s; al parar vuelve el efecto guardado |
 | `musica` por cable con música sonando | ✅ sigue la música y va al ritmo |
-| Espectro `0B` por el receptor 2.4G | (pendiente: el teclado estaba dormido) |
+| Espectro `0B` por el receptor 2.4G con intensidades 0-255 | ⚠️ se encendía todo: el teclado espera alturas |
+| Espectro `0B` con la altura de cada columna en filas (0-6) | ✅ ecualizador, también desde la ventana |

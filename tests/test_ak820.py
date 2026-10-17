@@ -452,7 +452,7 @@ class MusicaPorReceptor(Musica):
             self.assertEqual(ak820.musica("rojo", parar), 0)
         trama = self.rx.tramas[-1]
         self.assertEqual(trama[:6].hex(" "), "0b 18 00 07 00 00")            # orden 0B, 24 bytes, modo rojo (7)
-        self.assertEqual(trama[6:8].hex(" "), "ff c8")
+        self.assertEqual(trama[6:12].hex(" "), "06 05 04 02 01 00")      # alturas en filas (0-6)
 
 
 class OtrasOrdenes(ConTecladoFalso):
