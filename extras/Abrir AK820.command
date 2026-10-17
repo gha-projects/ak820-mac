@@ -1,6 +1,6 @@
 #!/bin/bash
 # Abre la app de la barra de menús del AK820. Pensado para doble clic en Finder.
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 if [ ! -x .venv/bin/python ]; then
   echo "Falta el entorno de Python del proyecto. Sigue el paso 3 de 'Cómo ejecutarlo' del README."
