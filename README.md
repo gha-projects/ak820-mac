@@ -86,16 +86,21 @@ Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable
 ./instalar-teclas-mac.sh quitar   # volver a como estaba
 ```
 
-## Reposo
+## Reposo y otros ajustes del sistema
 
 ```
-python3 ak820.py reposo 5        # 1, 5, 30 o nunca
+python3 ak820.py reposo 5                      # 1, 5, 30 o nunca
+python3 ak820.py sistema --fn-modo alternar    # Fn activa/desactiva la capa Fn (de fábrica: mantener)
+python3 ak820.py sistema --respuesta 3         # antirrebote, nivel 1 (rápido) a 5; de fábrica 2
+python3 ak820.py sistema --bloquear win        # también altf4, alttab; --desbloquear para quitarlo
+python3 ak820.py sistema                       # ver los últimos ajustes enviados
+python3 ak820.py sistema --fabrica             # volver a los de fábrica
 ```
 
-Se configura por cable, pero solo se nota con batería: enchufado por USB las luces no
-se apagan. El paquete lleva también otros ajustes del sistema (tecla Fn, tiempo de
-respuesta de las teclas, desactivar Win/Alt+F4/Alt+Tab); se envían con los valores por
-defecto del programa oficial.
+El reposo se configura por cable, pero solo se nota con batería: enchufado por USB las
+luces no se apagan. Todos estos ajustes viajan en el mismo paquete y el teclado no deja
+leerlos, así que el programa recuerda los últimos enviados (en
+`~/Library/Application Support/ak820-mac/sistema.json`) para no pisar unos al cambiar otros.
 
 ## Cambiar teclas dentro del teclado
 
@@ -105,6 +110,8 @@ python3 ak820.py teclas repag=cmd+a avpag=volumen+  # combinaciones y multimedia
 python3 ak820.py teclas supr=clic_der              # ratón
 python3 ak820.py teclas --fn avpag=play            # capa con Fn (Fn + PgDn)
 python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
+python3 ak820.py teclas avpag=texto:hola --modo mantener  # se repite mientras se mantiene
+python3 ak820.py teclas avpag=multi:shift+a        # "Multi-Key": hasta 3 teclas a la vez
 python3 ak820.py teclas restaurar                  # todas de fábrica (añade --fn para esa capa)
 python3 ak820.py teclas lista                      # todos los nombres
 ```
@@ -125,9 +132,7 @@ Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla
 
 ## Próximos pasos
 
-Todo lo previsto funciona. Ideas que quedan: el tipo "Multi-Key" (hasta 3 teclas a la
-vez), los otros modos de repetición de las macros y exponer el resto de ajustes del
-sistema (tecla Fn, tiempo de respuesta).
+Todo lo previsto funciona.
 
 ## Créditos
 

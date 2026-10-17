@@ -20,6 +20,8 @@ Solo funciona con el teclado conectado por CABLE USB-C (no Bluetooth ni 2.4G).
 """
 import argparse
 import datetime
+import json
+import os
 import sys
 import time
 
@@ -99,10 +101,16 @@ TAM_TABLA_TECLAS = 576
 #   [5]=fn_switch  [6]=sleep_time (reposo)  [8]=key_respondtime  [62..63]=AA 55
 # Valores por defecto del programa oficial: fn_switch 0, sleep_time 2, key_respondtime 2.
 # (gohv ponía el reposo en el byte 8, que en realidad es el tiempo de respuesta.)
+#   fn_switch: 0 = la capa Fn solo mientras se mantiene Fn, 1 = Fn la activa/desactiva.
+#   key_respondtime: nivel 1-5 de antirrebote (por cable, de ~2 ms a ~18 ms).
+# Como el teclado no deja leer los ajustes, se recuerdan los últimos enviados en
+# AJUSTES_GUARDADOS para no pisar unos al cambiar otros.
 CMD_SISTEMA = 0x17
 REPOSO = {"nunca": 0, "1": 1, "5": 2, "30": 3}     # minutos -> valor
-FN_SWITCH_DEFECTO = 0
-RESPUESTA_DEFECTO = 2
+MODO_FN = {"mantener": 0, "alternar": 1}
+AJUSTES_DEFECTO = {"bloquear_win": 0, "bloquear_altf4": 0, "bloquear_alttab": 0,
+                   "fn": 0, "reposo": 2, "respuesta": 2}
+AJUSTES_GUARDADOS = os.path.expanduser("~/Library/Application Support/ak820-mac/sistema.json")
 
 CMD_MACROS = 0x19
 CMD_MACROS_DATOS = 0x15
@@ -142,10 +150,17 @@ MULTIMEDIA = {"play": 0xCD, "siguiente": 0xB5, "anterior": 0xB6, "stop": 0xB7,
               "silencio": 0xE2, "volumen+": 0xE9, "volumen-": 0xEA,
               "brillo+": 0x6F, "brillo-": 0x70}
 
-# Ratón: (tipo, valor). Tipo 1 = botones (bits USB: 1 izq., 2 der., 4 central), 3 = rueda.
+# Ratón: (tipo, valor). Tipo 1 = botones (bits USB: 1 izq., 2 der., 4 central;
+# 3 = doble clic en el programa oficial), 3 = rueda.
 RATON = {"clic": (0x01, 0x01), "clic_der": (0x01, 0x02), "clic_medio": (0x01, 0x04),
-         "atras": (0x01, 0x08), "adelante": (0x01, 0x10),
+         "doble_clic": (0x01, 0x03), "atras": (0x01, 0x08), "adelante": (0x01, 0x10),
          "rueda_arriba": (0x03, 0x01), "rueda_abajo": (0x03, 0xFF)}
+
+# "Multi-Key" del programa oficial: hasta 3 teclas a la vez, 07 <t1> <t2> <t3>, con
+# los modificadores como teclas (códigos USB E0-E7), no como bits.
+CODIGO_MODIFICADOR = {"ctrl": 0xE0, "shift": 0xE1, "option": 0xE2, "alt": 0xE2, "cmd": 0xE3,
+                      "win": 0xE3, "ctrl_der": 0xE4, "shift_der": 0xE5, "option_der": 0xE6,
+                      "alt_der": 0xE6, "cmd_der": 0xE7, "win_der": 0xE7}
 
 # Teclas que se pueden asignar como destino (códigos USB HID).
 CODIGO_TECLA = {
@@ -236,6 +251,14 @@ def entrada_tecla(destino):
     Devuelve None si no se entiende el destino.
     """
     destino = destino.lower()
+    if destino.startswith("multi:"):
+        teclas = destino[len("multi:"):].split("+")
+        if not 1 <= len(teclas) <= 3:
+            return None
+        codigos = [CODIGO_TECLA.get(t) or CODIGO_MODIFICADOR.get(t) for t in teclas]
+        if None in codigos:
+            return None
+        return bytes([0x07] + codigos + [0x00] * (3 - len(codigos)))
     if destino in MULTIMEDIA:
         codigo = MULTIMEDIA[destino]
         return bytes([0x03, codigo & 0xFF, codigo >> 8, 0x00])
@@ -445,24 +468,39 @@ def cmd_luces(args):
     return 0
 
 
-def paquete_sistema(reposo, fn_switch=FN_SWITCH_DEFECTO, respuesta=RESPUESTA_DEFECTO):
+def paquete_sistema(ajustes):
     """Paquete de ajustes del sistema (formato del programa oficial)."""
     p = bytearray(PACKET_SIZE)
     p[1] = 0x01
-    p[5] = fn_switch
-    p[6] = reposo
-    p[8] = respuesta
+    p[2] = ajustes["bloquear_win"]
+    p[3] = ajustes["bloquear_altf4"]
+    p[4] = ajustes["bloquear_alttab"]
+    p[5] = ajustes["fn"]
+    p[6] = ajustes["reposo"]
+    p[8] = ajustes["respuesta"]
     p[62] = 0xAA
     p[63] = 0x55
     return bytes(p)
 
 
-def cmd_reposo(args):
+def cargar_ajustes():
+    """Los últimos ajustes del sistema enviados (o los de fábrica si no hay)."""
+    ajustes = dict(AJUSTES_DEFECTO)
+    try:
+        with open(AJUSTES_GUARDADOS) as f:
+            ajustes.update({k: v for k, v in json.load(f).items() if k in ajustes})
+    except (OSError, ValueError):
+        pass
+    return ajustes
+
+
+def enviar_ajustes(ajustes):
+    """Manda los ajustes del sistema y, si el teclado los recibe bien, los recuerda."""
     info = buscar_interfaz()
     if info is None:
         print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
         return 1
-    datos = paquete_sistema(REPOSO[args.minutos])
+    datos = paquete_sistema(ajustes)
     dispositivo = hid.device()
     dispositivo.open_path(info["path"])
     try:
@@ -477,10 +515,58 @@ def cmd_reposo(args):
     if respuesta and int.from_bytes(respuesta[5:7], "little") != sum(datos) & 0xFFFF:
         print("El teclado no ha recibido bien el ajuste. Prueba otra vez.")
         return 1
+    os.makedirs(os.path.dirname(AJUSTES_GUARDADOS), exist_ok=True)
+    with open(AJUSTES_GUARDADOS, "w") as f:
+        json.dump(ajustes, f, indent=2)
+    return 0
+
+
+def describir_ajustes(ajustes):
+    reposo = {v: k for k, v in REPOSO.items()}[ajustes["reposo"]]
+    bloqueadas = [n for n, k in (("Win", "bloquear_win"), ("Alt+F4", "bloquear_altf4"),
+                                 ("Alt+Tab", "bloquear_alttab")) if ajustes[k]]
+    return "\n".join([
+        f"  Reposo: {'nunca' if reposo == 'nunca' else reposo + ' min'} (solo con batería)",
+        f"  Tecla Fn: {'activa/desactiva la capa Fn' if ajustes['fn'] else 'capa Fn solo mientras se mantiene'}",
+        f"  Tiempo de respuesta: nivel {ajustes['respuesta']} (1 rápido ... 5 lento)",
+        f"  Bloqueadas: {', '.join(bloqueadas) if bloqueadas else 'ninguna'}",
+    ])
+
+
+def cmd_reposo(args):
+    ajustes = cargar_ajustes()
+    ajustes["reposo"] = REPOSO[args.minutos]
+    if enviar_ajustes(ajustes):
+        return 1
     if args.minutos == "nunca":
         print("Reposo desactivado: las luces no se apagarán solas.")
     else:
         print(f"Reposo: las luces se apagarán tras {args.minutos} min sin tocar el teclado.")
+    return 0
+
+
+def cmd_sistema(args):
+    ajustes = cargar_ajustes()
+    cambios = {"fn": MODO_FN.get(args.fn_modo), "respuesta": args.respuesta,
+               "reposo": REPOSO.get(args.reposo)}
+    for nombre, clave in (("win", "bloquear_win"), ("altf4", "bloquear_altf4"),
+                          ("alttab", "bloquear_alttab")):
+        if nombre in (args.bloquear or []):
+            cambios[clave] = 1
+        if nombre in (args.desbloquear or []):
+            cambios[clave] = 0
+    cambios = {k: v for k, v in cambios.items() if v is not None}
+    if args.fabrica:
+        ajustes, cambios = dict(AJUSTES_DEFECTO), {"todo": True}
+    if not cambios:
+        print("Últimos ajustes del sistema enviados (el teclado no deja leerlos):")
+        print(describir_ajustes(ajustes))
+        return 0
+    ajustes.update({k: v for k, v in cambios.items() if k in ajustes})
+    if enviar_ajustes(ajustes):
+        return 1
+    print("Ajustes del sistema enviados:")
+    print(describir_ajustes(ajustes))
     return 0
 
 
@@ -645,6 +731,15 @@ def main(argv=None):
     l.add_argument("--arcoiris", action="store_true", help="usar todos los colores en vez de uno")
     s = sub.add_parser("reposo", help="apagar las luces tras un tiempo sin usar el teclado")
     s.add_argument("minutos", choices=REPOSO, help="1, 5, 30 o nunca")
+    si = sub.add_parser("sistema", help="otros ajustes: tecla Fn, tiempo de respuesta, bloquear Win/Alt+F4/Alt+Tab")
+    si.add_argument("--fn-modo", choices=MODO_FN,
+                    help="mantener: la capa Fn solo mientras se mantiene Fn; alternar: Fn la activa/desactiva")
+    si.add_argument("--respuesta", type=int, choices=range(1, 6), metavar="1-5",
+                    help="tiempo de respuesta de las teclas (antirrebote): 1 rápido ... 5 lento; de fábrica 2")
+    si.add_argument("--reposo", choices=REPOSO, help="igual que la orden 'reposo'")
+    si.add_argument("--bloquear", nargs="+", choices=["win", "altf4", "alttab"], help="bloquear teclas/atajos")
+    si.add_argument("--desbloquear", nargs="+", choices=["win", "altf4", "alttab"])
+    si.add_argument("--fabrica", action="store_true", help="volver a los ajustes de fábrica")
     i = sub.add_parser("imagen", help="poner una imagen en la pantalla del teclado")
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
@@ -658,7 +753,8 @@ def main(argv=None):
                         "alternar (hasta volver a pulsar), mantener (mientras se mantiene), clic")
     args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
-               "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo}
+               "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo,
+               "sistema": cmd_sistema}
     return ordenes[args.comando](args)
 
 

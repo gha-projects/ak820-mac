@@ -32,6 +32,7 @@ COLORES = {
 }
 EFECTOS_CON_COLOR = {"Fijo": "fijo", "Respirar": "respirar"}
 REPOSOS = {"1 minuto": "1", "5 minutos": "5", "30 minutos": "30", "Nunca": "nunca"}
+MODOS_FN = {"Solo mientras se mantiene (de fábrica)": "mantener", "Pulsar para activar/desactivar": "alternar"}
 TIPOS_IMAGEN = ["png", "jpg", "jpeg", "gif", "bmp", "webp", "tiff"]
 
 
@@ -49,6 +50,10 @@ def args_luces(efecto, color=None, brillo=5):
 
 def args_reposo(minutos):
     return ["reposo", minutos]
+
+
+def args_sistema(opciones):
+    return ["sistema"] + list(opciones)
 
 
 def args_imagen(ruta):
@@ -106,6 +111,7 @@ class AppAK820(rumps.App):
             self.menu_luces(),
             rumps.MenuItem("Imagen o GIF en la pantalla…", callback=self.imagen),
             self.menu_reposo(),
+            self.menu_sistema(),
             self.menu_teclas(),
             None,
         ]
@@ -138,6 +144,22 @@ class AppAK820(rumps.App):
             reposo.add(rumps.MenuItem(nombre, callback=self.accion_reposo(minutos)))
         return reposo
 
+    def menu_sistema(self):
+        sistema = rumps.MenuItem("Sistema")
+        fn = rumps.MenuItem("Tecla Fn")
+        for nombre, modo in MODOS_FN.items():
+            fn.add(rumps.MenuItem(nombre, callback=self.accion_sistema(["--fn-modo", modo])))
+        sistema.add(fn)
+        respuesta = rumps.MenuItem("Tiempo de respuesta de las teclas")
+        for n in range(1, 6):
+            nombre = f"Nivel {n}" + (" (de fábrica)" if n == 2 else "")
+            respuesta.add(rumps.MenuItem(nombre, callback=self.accion_sistema(["--respuesta", str(n)])))
+        sistema.add(respuesta)
+        sistema.add(None)
+        sistema.add(rumps.MenuItem("Ver ajustes actuales", callback=self.accion_sistema([])))
+        sistema.add(rumps.MenuItem("Ajustes de fábrica", callback=self.accion_sistema(["--fabrica"])))
+        return sistema
+
     def menu_teclas(self):
         teclas = rumps.MenuItem("Teclas")
         teclas.add(rumps.MenuItem("Restaurar teclas de fábrica", callback=self.restaurar_teclas))
@@ -165,6 +187,11 @@ class AppAK820(rumps.App):
             if self.ultima_luz and self.ultima_luz[0] != "apagado":
                 efecto, color = self.ultima_luz
                 self.ejecutar("Luces", [args_luces(efecto, color, n)])
+        return callback
+
+    def accion_sistema(self, opciones):
+        def callback(_):
+            self.ejecutar("Sistema", [args_sistema(opciones)])
         return callback
 
     def accion_reposo(self, minutos):
