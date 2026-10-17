@@ -24,6 +24,7 @@ import sys
 import threading
 import time
 
+import objc
 import rumps
 
 import ak820
@@ -184,6 +185,7 @@ class AppAK820(rumps.App):
         ]
         rumps.Timer(self.atender, 0.3).start()
         rumps.Timer(self.vigilar, SEGUNDOS_VIGILAR).start()
+        rumps.Timer(self.abrir_al_empezar, 0.5).start()     # la ventana, nada más abrir la app
 
     # --- Construcción del menú -------------------------------------------------
     def menu_reloj(self):
@@ -294,6 +296,10 @@ class AppAK820(rumps.App):
     def restaurar_teclas(self, _):
         self.ejecutar("Teclas", args_restaurar_teclas())
 
+    def abrir_al_empezar(self, temporizador):
+        temporizador.stop()
+        self.abrir_editor(None)
+
     def abrir_editor(self, _):
         url = self.editor.iniciar()
         if self.ventana is None:
@@ -392,6 +398,19 @@ def elegir_imagen():
     if panel.runModal() == NSModalResponseOK:
         return panel.URLs()[0].path()
     return None
+
+
+def al_reabrir(self, _aplicacion, hay_ventanas):
+    """Abrir AK820 otra vez (Launchpad, Spotlight, Dock) con la ventana cerrada la enseña."""
+    app = getattr(rumps.App, "*app_instance", None)
+    if app is not None and not hay_ventanas:
+        app.abrir_editor(None)
+    return True
+
+
+# rumps pone su propio delegado de la aplicación; se le añade lo de volver a abrir.
+objc.classAddMethods(rumps.rumps.NSApp, [objc.selector(
+    al_reabrir, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z")])
 
 
 def main():
