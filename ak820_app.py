@@ -30,6 +30,7 @@ import rumps
 import ak820
 import ak820_editor
 import ak820_ventana
+from idioma import tr
 
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 # Dentro de AK820.app (py2app) la guía va en Contents/Resources (RESOURCEPATH).
@@ -41,7 +42,7 @@ TITULO = "⌨︎"
 TITULO_OCUPADO = "⌨︎…"
 TITULO_HECHO = "⌨︎ ✓"
 SEGUNDOS_HECHO = 3
-PROGRESO = re.compile(r"(\d+) % enviado")
+PROGRESO = re.compile(r"(\d+) % ")
 
 COLORES = {
     "Rojo": "FF0000", "Verde": "00FF00", "Azul": "0000FF", "Blanco": "FFFFFF",
@@ -106,32 +107,31 @@ def resumen(salida, codigo, solo_ultima=False, completo=False):
     lineas = [l.strip() for l in salida.splitlines() if l.strip()]
     errores = [l.split("error:", 1)[1].strip() for l in lineas if "error:" in l]
     if errores:                                    # error de argumentos (argparse)
-        return "Error: " + errores[-1]
-    lineas = [l for l in lineas if "% enviado" not in l and not l.startswith("Para volver")
-              and not l.startswith("(Cada vez")]
-    if codigo != 0 and any(aviso in l for l in lineas
-                           for aviso in ("No encuentro el teclado", "No veo ningún", "No aparece la interfaz")):
-        return ("No encuentro el teclado. Conéctalo con el cable USB-C o con el receptor 2.4G "
-                "(por Bluetooth no se puede configurar).")
+        return tr("Error: {error}", error=errores[-1])
+    lineas = [l for l in lineas if not PROGRESO.search(l) and not l.startswith(tr("Para volver"))]
+    avisos = (tr("No encuentro el teclado"), tr("No veo ningún"), tr("No aparece la interfaz"))
+    if codigo != 0 and any(aviso in l for l in lineas for aviso in avisos):
+        return tr("No encuentro el teclado. Conéctalo con el cable USB-C o con el receptor 2.4G "
+                  "(por Bluetooth no se puede configurar).")
     if solo_ultima:
         lineas = lineas[-1:]
     elif not completo:
         lineas = lineas[-3:]
-    return "\n".join(lineas) or ("Hecho." if codigo == 0 else "Algo ha fallado.")
+    return "\n".join(lineas) or (tr("Hecho.") if codigo == 0 else tr("Algo ha fallado."))
 
 
 def ventana(titulo, mensaje):
     """Ventana con un mensaje, delante de todo (la app no tiene icono en el Dock)."""
     from AppKit import NSApp
     NSApp.activateIgnoringOtherApps_(True)
-    rumps.alert(title=f"AK820 · {titulo}", message=mensaje, ok="Vale")
+    rumps.alert(title=f"AK820 · {tr(titulo)}", message=mensaje, ok=tr("Vale"))
 
 
 def notificar(titulo, mensaje):
     """Notificación de macOS. Solo dentro de AK820.app: un Python suelto no tiene permiso."""
     if getattr(sys, "frozen", False):
         try:
-            rumps.notification("AK820", titulo, mensaje)
+            rumps.notification("AK820", tr(titulo), mensaje)
         except Exception:
             pass
 
@@ -155,7 +155,7 @@ class Salida(io.StringIO):
 
 class AppAK820(rumps.App):
     def __init__(self):
-        super().__init__("AK820", title=TITULO, quit_button="Salir")
+        super().__init__("AK820", title=TITULO, quit_button=tr("Salir"))
         self.candado = threading.Lock()
         self.mensajes = queue.Queue()      # (título, mensaje, bien, avisar) que dejan los hilos
         self.preferencias = cargar_preferencias()
@@ -170,15 +170,15 @@ class AppAK820(rumps.App):
         self.ventana = None                                 # la ventana propia, al abrirla
         self.error_musica_visto = ""
 
-        self.item_estado = rumps.MenuItem("Comprobar teclado", callback=self.comprobar)
+        self.item_estado = rumps.MenuItem(tr("Comprobar teclado"), callback=self.comprobar)
         self.items_brillo = {}
         self.menu = [
             self.item_estado,
-            rumps.MenuItem("Abrir AK820…", callback=self.abrir_editor),
+            rumps.MenuItem(tr("Abrir AK820…"), callback=self.abrir_editor),
             None,
             self.menu_reloj(),
             self.menu_luces(),
-            rumps.MenuItem("Imagen o GIF en la pantalla…", callback=self.imagen),
+            rumps.MenuItem(tr("Imagen o GIF en la pantalla…"), callback=self.imagen),
             self.menu_reposo(),
             self.menu_sistema(),
             self.menu_teclas(),
@@ -190,31 +190,31 @@ class AppAK820(rumps.App):
 
     # --- Construcción del menú -------------------------------------------------
     def menu_reloj(self):
-        reloj = rumps.MenuItem("Reloj")
-        reloj.add(rumps.MenuItem("Poner en hora ahora", callback=self.reloj))
-        self.item_hora_auto = rumps.MenuItem("Ponerla sola al conectar el teclado",
+        reloj = rumps.MenuItem(tr("Reloj"))
+        reloj.add(rumps.MenuItem(tr("Poner en hora ahora"), callback=self.reloj))
+        self.item_hora_auto = rumps.MenuItem(tr("Ponerla sola al conectar el teclado"),
                                              callback=self.cambiar_hora_auto)
         self.item_hora_auto.state = int(self.preferencias["hora_al_conectar"])
         reloj.add(self.item_hora_auto)
         reloj.add(None)
-        aviso = rumps.MenuItem("(no se pone sola si la pantalla tiene una imagen)")
+        aviso = rumps.MenuItem(tr("(no se pone sola si la pantalla tiene una imagen)"))
         reloj.add(aviso)
         return reloj
 
     def menu_luces(self):
-        luces = rumps.MenuItem("Luces")
+        luces = rumps.MenuItem(tr("Luces"))
         for nombre, efecto in EFECTOS_CON_COLOR.items():
-            sub = rumps.MenuItem(nombre)
+            sub = rumps.MenuItem(tr(nombre))
             for color, hexa in COLORES.items():
-                sub.add(rumps.MenuItem(color, callback=self.accion_luz(efecto, hexa)))
+                sub.add(rumps.MenuItem(tr(color), callback=self.accion_luz(efecto, hexa)))
             luces.add(sub)
-        luces.add(rumps.MenuItem("Espectro (arcoíris)", callback=self.accion_luz("espectro")))
-        luces.add(rumps.MenuItem("Ola de colores", callback=self.accion_luz("rodar")))
-        luces.add(rumps.MenuItem("Apagadas", callback=self.accion_luz("apagado")))
-        self.item_musica = rumps.MenuItem("🎵 Modo música", callback=self.cambiar_musica)
+        luces.add(rumps.MenuItem(tr("Espectro (arcoíris)"), callback=self.accion_luz("espectro")))
+        luces.add(rumps.MenuItem(tr("Ola de colores"), callback=self.accion_luz("rodar")))
+        luces.add(rumps.MenuItem(tr("Apagadas"), callback=self.accion_luz("apagado")))
+        self.item_musica = rumps.MenuItem(tr("🎵 Modo música"), callback=self.cambiar_musica)
         luces.add(self.item_musica)
         luces.add(None)
-        brillo = rumps.MenuItem("Brillo")
+        brillo = rumps.MenuItem(tr("Brillo"))
         for n in range(1, 6):
             item = rumps.MenuItem(str(n), callback=self.accion_brillo(n))
             item.state = int(n == self.brillo)
@@ -224,33 +224,33 @@ class AppAK820(rumps.App):
         return luces
 
     def menu_reposo(self):
-        reposo = rumps.MenuItem("Reposo (solo con batería)")
+        reposo = rumps.MenuItem(tr("Reposo (solo con batería)"))
         for nombre, minutos in REPOSOS.items():
-            reposo.add(rumps.MenuItem(nombre, callback=self.accion_reposo(minutos)))
+            reposo.add(rumps.MenuItem(tr(nombre), callback=self.accion_reposo(minutos)))
         return reposo
 
     def menu_sistema(self):
-        sistema = rumps.MenuItem("Sistema")
-        fn = rumps.MenuItem("Tecla Fn")
+        sistema = rumps.MenuItem(tr("Sistema"))
+        fn = rumps.MenuItem(tr("Tecla Fn"))
         for nombre, modo in MODOS_FN.items():
-            fn.add(rumps.MenuItem(nombre, callback=self.accion_sistema(["--fn-modo", modo])))
+            fn.add(rumps.MenuItem(tr(nombre), callback=self.accion_sistema(["--fn-modo", modo])))
         sistema.add(fn)
-        respuesta = rumps.MenuItem("Tiempo de respuesta de las teclas")
+        respuesta = rumps.MenuItem(tr("Tiempo de respuesta de las teclas"))
         for n in range(1, 6):
-            nombre = f"Nivel {n}" + (" (de fábrica)" if n == 2 else "")
+            nombre = tr("Nivel {n}", n=n) + (tr(" (de fábrica)") if n == 2 else "")
             respuesta.add(rumps.MenuItem(nombre, callback=self.accion_sistema(["--respuesta", str(n)])))
         sistema.add(respuesta)
         sistema.add(None)
-        sistema.add(rumps.MenuItem("Ver ajustes actuales", callback=self.accion_sistema([])))
-        sistema.add(rumps.MenuItem("Ajustes de fábrica", callback=self.accion_sistema(["--fabrica"])))
+        sistema.add(rumps.MenuItem(tr("Ver ajustes actuales"), callback=self.accion_sistema([])))
+        sistema.add(rumps.MenuItem(tr("Ajustes de fábrica"), callback=self.accion_sistema(["--fabrica"])))
         return sistema
 
     def menu_teclas(self):
-        teclas = rumps.MenuItem("Teclas")
-        teclas.add(rumps.MenuItem("Editor de teclas…", callback=self.abrir_editor))
+        teclas = rumps.MenuItem(tr("Teclas"))
+        teclas.add(rumps.MenuItem(tr("Editor de teclas…"), callback=self.abrir_editor))
         teclas.add(None)
-        teclas.add(rumps.MenuItem("Restaurar teclas de fábrica", callback=self.restaurar_teclas))
-        teclas.add(rumps.MenuItem("Abrir guía de teclas", callback=self.guia_teclas))
+        teclas.add(rumps.MenuItem(tr("Restaurar teclas de fábrica"), callback=self.restaurar_teclas))
+        teclas.add(rumps.MenuItem(tr("Abrir guía de teclas"), callback=self.guia_teclas))
         return teclas
 
     # --- Acciones ------------------------------------------------------------
@@ -328,7 +328,7 @@ class AppAK820(rumps.App):
         "nunca" (para lo que hace la app por su cuenta; queda en el registro)."""
         if not self.candado.acquire(blocking=False):
             if avisar != "nunca":
-                ventana(titulo, "Espera: hay otra operación en curso.")
+                ventana(titulo, tr("Espera: hay otra operación en curso."))
             return False
         self.progreso = None
         self.title = TITULO_OCUPADO
@@ -349,7 +349,7 @@ class AppAK820(rumps.App):
                     except SystemExit as e:          # argparse sale así si algo no cuadra
                         codigo = e.code if isinstance(e.code, int) else 1
                     except Exception as e:           # p. ej. el teclado se desconecta a medias
-                        print(f"Error: {e}")
+                        print(tr("Error: {error}", error=e))
                         codigo = 1
                 mensajes.append(resumen(salida.getvalue(), codigo, solo_ultima=es_comprobacion,
                                         completo=avisar == "siempre"))
@@ -383,7 +383,7 @@ class AppAK820(rumps.App):
                 self.hecho_hasta = time.monotonic() + SEGUNDOS_HECHO
                 self.title = TITULO_HECHO
                 if titulo == "Pantalla":            # tarda: avisa por si estás en otra cosa
-                    notificar("Pantalla", "La imagen ya está en la pantalla del teclado.")
+                    notificar("Pantalla", tr("La imagen ya está en la pantalla del teclado."))
             if avisar == "siempre" or (avisar == "error" and not bien):
                 ventana(titulo, mensaje)
 
@@ -397,8 +397,8 @@ class AppAK820(rumps.App):
             return
         if conectado != self.conectado:
             self.conectado = conectado
-            self.item_estado.title = {"cable": "Teclado: conectado por cable ✓",
-                                      "2.4g": "Teclado: con el receptor 2.4G ✓"}.get(conectado, "Teclado: sin conectar")
+            self.item_estado.title = tr({"cable": "Teclado: conectado por cable ✓",
+                                         "2.4g": "Teclado: con el receptor 2.4G ✓"}.get(conectado, "Teclado: sin conectar"))
             self.reloj_pendiente = conectado is not None
         if self.reloj_pendiente and not self.candado.locked():
             self.reloj_pendiente = False
@@ -411,7 +411,7 @@ def elegir_imagen():
     """Selector de archivos de macOS; devuelve la ruta elegida o None."""
     from AppKit import NSApp, NSOpenPanel, NSModalResponseOK
     panel = NSOpenPanel.openPanel()
-    panel.setTitle_("Elige una imagen o un GIF para la pantalla del teclado")
+    panel.setTitle_(tr("Elige una imagen o un GIF para la pantalla del teclado"))
     panel.setAllowedFileTypes_(TIPOS_IMAGEN)
     panel.setAllowsMultipleSelection_(False)
     NSApp.activateIgnoringOtherApps_(True)      # que el selector salga delante

@@ -30,6 +30,8 @@ import time
 
 import hid  # paquete "hidapi" (pip install hidapi)
 
+from idioma import tr       # los textos, en el idioma del Mac
+
 # --- Identificación del teclado ---------------------------------------------
 VENDOR_ID = 0x0C45          # SONiX, el fabricante del chip
 PRODUCT_IDS_CABLE = (0x8009, 0x800A)  # AK820 Pro por cable (según el modelo/firmware)
@@ -484,7 +486,7 @@ def abrir_teclado():
             dispositivo = hid.device()
             dispositivo.open_path(info["path"])
             return modo, dispositivo
-    print("No encuentro el teclado (ni por cable ni con el receptor 2.4G). Prueba primero: python3 ak820.py buscar")
+    print(tr("No encuentro el teclado (ni por cable ni con el receptor 2.4G). Prueba primero: python3 ak820.py buscar"))
     return None, None
 
 
@@ -524,6 +526,11 @@ def enviar_24g(dispositivo, tramas):
     return True
 
 
+def sin_respuesta_24g(que):
+    return tr("El receptor 2.4G no ha confirmado {que}. ¿Está el teclado encendido y en 2.4G? "
+              "Si lleva un rato sin usarse, pulsa una tecla para despertarlo.", que=tr(que))
+
+
 def datos_24g(paquete):
     """Los 16 bytes que van por el receptor: el principio del paquete por cable y AA 55."""
     return paquete[:14] + b"\xaa\x55"
@@ -545,22 +552,23 @@ def enviar(dispositivo, paquete):
 def cmd_buscar(_args):
     todas = hid.enumerate(VENDOR_ID)
     if not todas:
-        print("No veo ningún teclado AK820. ¿Está conectado por cable USB-C?")
+        print(tr("No veo ningún teclado AK820. ¿Está conectado por cable USB-C?"))
         return 1
-    print("Interfaces del teclado que ve tu Mac:")
+    print(tr("Interfaces del teclado que ve tu Mac:"))
     for i in todas:
-        marca = "  <- configuración" if i["usage_page"] == CONFIG_USAGE_PAGE else ""
-        print(f"  PID 0x{i['product_id']:04X}  interfaz {i['interface_number']}  "
-              f"usage page 0x{i['usage_page']:04X}  {i['product_string']}{marca}")
+        marca = tr("  <- configuración") if i["usage_page"] == CONFIG_USAGE_PAGE else ""
+        print(tr("  PID 0x{pid:04X}  interfaz {interfaz}  usage page 0x{pagina:04X}  {nombre}{marca}",
+                 pid=i["product_id"], interfaz=i["interface_number"], pagina=i["usage_page"],
+                 nombre=i["product_string"], marca=marca))
     if buscar_interfaz() is None:
         if buscar_receptor() is not None:
-            print("\nEstá el receptor 2.4G: se pueden cambiar las luces, las teclas, las macros, los")
-            print("ajustes y la hora. Los colores tecla a tecla y la pantalla, solo por cable.")
+            print("\n" + tr("Está el receptor 2.4G: se pueden cambiar las luces, las teclas, las macros, los "
+                            "ajustes y la hora. Los colores tecla a tecla y la pantalla, solo por cable."))
             return 0
-        print("\nNo aparece la interfaz de configuración (PID 0x8009/0x800A, 0xFF13) ni el receptor 2.4G.")
-        print("Si estás por Bluetooth, conéctalo por cable o con el receptor 2.4G.")
+        print("\n" + tr("No aparece la interfaz de configuración (PID 0x8009/0x800A, 0xFF13) ni el receptor 2.4G."))
+        print(tr("Si estás por Bluetooth, conéctalo por cable o con el receptor 2.4G."))
         return 1
-    print("\nTodo bien: el teclado está listo para configurarse.")
+    print("\n" + tr("Todo bien: el teclado está listo para configurarse."))
     return 0
 
 
@@ -577,7 +585,7 @@ def cmd_reloj(args):
             datos = bytearray(paquete_hora(t)[:16])
             datos[10] = t.isoweekday() % 7          # día de la semana (domingo = 0), como el oficial
             if not enviar_24g(dispositivo, tramas_24g(ORDEN_24G["reloj"], datos_24g(bytes(datos)))):
-                print("El receptor 2.4G no ha confirmado la hora. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                print(sin_respuesta_24g("la hora"))
                 return 1
         else:
             enviar(dispositivo, paquete_control(CMD_EMPEZAR))
@@ -588,7 +596,7 @@ def cmd_reloj(args):
     finally:
         dispositivo.close()
     guardar_modo_pantalla("reloj")
-    print(f"Reloj del teclado puesto a {t:%d/%m/%Y %H:%M:%S}. Mira la pantalla.")
+    print(tr("Reloj del teclado puesto a {hora}. Mira la pantalla.", hora=f"{t:%d/%m/%Y %H:%M:%S}"))
     return 0
 
 
@@ -635,7 +643,7 @@ def enviar_colores(config):
         return False
     try:
         if modo == "2.4g":
-            print("Los colores tecla a tecla solo se pueden cambiar por cable (por el receptor 2.4G, no).")
+            print(tr("Los colores tecla a tecla solo se pueden cambiar por cable (por el receptor 2.4G, no)."))
             return False
         enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
         enviar(dispositivo, paquete_control(CMD_LUCES))
@@ -643,7 +651,7 @@ def enviar_colores(config):
         enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
         enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
         if not subir_tabla(dispositivo, CMD_COLORES, tabla):
-            print("No consigo guardar los colores en el teclado. Prueba otra vez.")
+            print(tr("No consigo guardar los colores en el teclado. Prueba otra vez."))
             return False
     finally:
         dispositivo.close()
@@ -658,14 +666,16 @@ def enviar_colores(config):
 
 def describir_colores(config):
     teclas = ", ".join(f"{t}={c}" for t, c in config["teclas"].items())
-    return (f"  Resto de teclas: {'apagadas' if config['fondo'] == '000000' else config['fondo']}\n"
-            f"  Teclas con su color: {teclas or 'ninguna'}\n  Brillo: {config['brillo']} de 5")
+    fondo = tr("apagadas") if config["fondo"] == "000000" else config["fondo"]
+    return "\n".join([tr("  Resto de teclas: {fondo}", fondo=fondo),
+                      tr("  Teclas con su color: {teclas}", teclas=teclas or tr("ninguna")),
+                      tr("  Brillo: {brillo} de 5", brillo=config["brillo"])])
 
 
 def cmd_colores(args):
     config = cargar_colores()
     if not args.cambios and args.fondo is None and args.brillo is None:
-        print("Colores tecla a tecla (los últimos enviados desde este Mac):")
+        print(tr("Colores tecla a tecla (los últimos enviados desde este Mac):"))
         print(describir_colores(config))
         return 0
     if args.cambios == ["restaurar"]:
@@ -676,27 +686,27 @@ def cmd_colores(args):
             origen = origen.lower()
             nombre = "fn" if origen == "fn" else NOMBRE_TECLA.get(POSICION_TECLA.get(origen))
             if not igual or nombre is None:
-                print(f"No entiendo '{cambio}'. Usa tecla=RRGGBB (p. ej. avpag=FF0000) o tecla=defecto.")
+                print(tr("No entiendo '{cambio}'. Usa tecla=RRGGBB (p. ej. avpag=FF0000) o tecla=defecto.", cambio=cambio))
                 return 1
             if color.lower() == "defecto":
                 config["teclas"].pop(nombre, None)
             elif color_valido(color):
                 config["teclas"][nombre] = color_valido(color)
             else:
-                print(f"'{color}' no es un color: usa 6 cifras hexadecimales, p. ej. FF0000 (rojo).")
+                print(tr("'{color}' no es un color: usa 6 cifras hexadecimales, p. ej. FF0000 (rojo).", color=color))
                 return 1
     if args.fondo is not None:
         if not color_valido(args.fondo):
-            print(f"'{args.fondo}' no es un color: usa 6 cifras hexadecimales, p. ej. 000000 (apagado).")
+            print(tr("'{color}' no es un color: usa 6 cifras hexadecimales, p. ej. 000000 (apagado).", color=args.fondo))
             return 1
         config["fondo"] = color_valido(args.fondo)
     if args.brillo is not None:
         config["brillo"] = args.brillo
     if not enviar_colores(config):
         return 1
-    print("Colores guardados en el teclado:")
+    print(tr("Colores guardados en el teclado:"))
     print(describir_colores(config))
-    print("(Para volver a un efecto normal: python3 ak820.py luces ...)")
+    print(tr("(Para volver a un efecto normal: python3 ak820.py luces ...)"))
     return 0
 
 
@@ -710,7 +720,7 @@ def ruta_espectro():
     destino = os.path.join(CARPETA_RECURSOS, "musica", "espectro")
     if not os.path.exists(fuente):
         return None
-    print("Compilando el programa que escucha el sonido (solo la primera vez)...")
+    print(tr("Compilando el programa que escucha el sonido (solo la primera vez)..."))
     sdks = sorted((os.path.join(d, n) for d in ["/Library/Developer/CommandLineTools/SDKs"]
                    if os.path.isdir(d) for n in os.listdir(d)), reverse=True)
     # Que funcione desde macOS 14.2 (los taps de audio), no solo en la versión de este Mac.
@@ -785,7 +795,7 @@ def musica(modo, parar, segundos=None):
     """
     programa = ruta_espectro()
     if programa is None:
-        print("Falta el programa que escucha el sonido (musica/espectro) y no se ha podido compilar.")
+        print(tr("Falta el programa que escucha el sonido (musica/espectro) y no se ha podido compilar."))
         return 1
     conexion, dispositivo = abrir_teclado()
     if conexion is None:
@@ -804,12 +814,15 @@ def musica(modo, parar, segundos=None):
     teclas = teclas_con_posicion()
     inicio = time.time()
     fallos_24g = 0
-    print(f"Modo música ({modo}) {'por cable' if conexion == 'cable' else 'con el receptor 2.4G'}. "
-          "Para pararlo: Ctrl+C." if segundos is None else f"Modo música ({modo}) durante {segundos} s.")
+    if segundos is None:
+        via = tr("por cable") if conexion == "cable" else tr("con el receptor 2.4G")
+        print(tr("Modo música ({modo}) {via}. Para pararlo: Ctrl+C.", modo=modo, via=via))
+    else:
+        print(tr("Modo música ({modo}) durante {segundos} s.", modo=modo, segundos=segundos))
     try:
         while not parar.is_set() and (segundos is None or time.time() - inicio < segundos):
             if escucha.poll() is not None:
-                print("El programa que escucha el sonido se ha parado: " + escucha.stderr.read().strip())
+                print(tr("El programa que escucha el sonido se ha parado: {motivo}", motivo=escucha.stderr.read().strip()))
                 return 1
             if conexion == "cable":
                 cuadro_en_vivo(dispositivo, colores_musica(teclas, ultimo["bandas"], modo, time.time() - inicio))
@@ -821,7 +834,7 @@ def musica(modo, parar, segundos=None):
                 dispositivo.write(b"\x00" + trama)
                 fallos_24g = 0 if esperar_eco(dispositivo, trama) else fallos_24g + 1
                 if fallos_24g == 25:
-                    print("El teclado no contesta por el receptor 2.4G: pulsa una tecla para despertarlo.")
+                    print(tr("El teclado no contesta por el receptor 2.4G: pulsa una tecla para despertarlo."))
                 time.sleep(0.02)
     finally:
         escucha.stdin.close()                       # así el programa que escucha se para solo
@@ -836,7 +849,7 @@ def cmd_musica(args):
         return musica(args.modo, parar, args.segundos)
     except KeyboardInterrupt:
         parar.set()
-        print("\nModo música parado.")
+        print("\n" + tr("Modo música parado."))
         return 0
 
 
@@ -857,7 +870,7 @@ def cmd_luces(args):
     try:
         if modo == "2.4g":
             if not enviar_24g(dispositivo, tramas_24g(ORDEN_24G["luces"], datos_24g(datos))):
-                print("El receptor 2.4G no ha confirmado las luces. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                print(sin_respuesta_24g("las luces"))
                 return 1
         else:
             enviar(dispositivo, paquete_control(CMD_EMPEZAR))
@@ -871,7 +884,8 @@ def cmd_luces(args):
     with open(LUCES_GUARDADAS, "w") as f:
         json.dump({"efecto": args.efecto, "color": color.upper(), "brillo": args.brillo,
                    "velocidad": args.velocidad, "direccion": args.direccion, "arcoiris": args.arcoiris}, f)
-    print(f"Luces: {args.efecto}, color #{color.upper()}, brillo {brillo}, velocidad {velocidad}. Mira el teclado.")
+    print(tr("Luces: {efecto}, color #{color}, brillo {brillo}, velocidad {velocidad}. Mira el teclado.",
+             efecto=args.efecto, color=color.upper(), brillo=brillo, velocidad=velocidad))
     return 0
 
 
@@ -911,7 +925,7 @@ def enviar_ajustes(ajustes):
     try:
         if modo == "2.4g":
             if not enviar_24g(dispositivo, tramas_24g(ORDEN_24G["sistema"], datos_24g(datos))):
-                print("El receptor 2.4G no ha confirmado los ajustes. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                print(sin_respuesta_24g("los ajustes"))
                 return 1
             return guardar_ajustes(ajustes)
         enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
@@ -923,7 +937,7 @@ def enviar_ajustes(ajustes):
     finally:
         dispositivo.close()
     if respuesta and int.from_bytes(respuesta[5:7], "little") != sum(datos) & 0xFFFF:
-        print("El teclado no ha recibido bien el ajuste. Prueba otra vez.")
+        print(tr("El teclado no ha recibido bien el ajuste. Prueba otra vez."))
         return 1
     return guardar_ajustes(ajustes)
 
@@ -940,10 +954,11 @@ def describir_ajustes(ajustes):
     bloqueadas = [n for n, k in (("Win", "bloquear_win"), ("Alt+F4", "bloquear_altf4"),
                                  ("Alt+Tab", "bloquear_alttab")) if ajustes[k]]
     return "\n".join([
-        f"  Reposo: {'nunca' if reposo == 'nunca' else reposo + ' min'} (solo con batería)",
-        f"  Tecla Fn: {'activa/desactiva la capa Fn' if ajustes['fn'] else 'capa Fn solo mientras se mantiene'}",
-        f"  Tiempo de respuesta: nivel {ajustes['respuesta']} (1 rápido ... 5 lento)",
-        f"  Bloqueadas: {', '.join(bloqueadas) if bloqueadas else 'ninguna'}",
+        tr("  Reposo: {reposo} (solo con batería)", reposo=tr("nunca") if reposo == "nunca" else reposo + " min"),
+        tr("  Tecla Fn: {fn}", fn=tr("activa/desactiva la capa Fn") if ajustes["fn"]
+           else tr("capa Fn solo mientras se mantiene")),
+        tr("  Tiempo de respuesta: nivel {nivel} (1 rápido ... 5 lento)", nivel=ajustes["respuesta"]),
+        tr("  Bloqueadas: {teclas}", teclas=", ".join(bloqueadas) if bloqueadas else tr("ninguna")),
     ])
 
 
@@ -953,9 +968,9 @@ def cmd_reposo(args):
     if enviar_ajustes(ajustes):
         return 1
     if args.minutos == "nunca":
-        print("Reposo desactivado: las luces no se apagarán solas.")
+        print(tr("Reposo desactivado: las luces no se apagarán solas."))
     else:
-        print(f"Reposo: las luces se apagarán tras {args.minutos} min sin tocar el teclado.")
+        print(tr("Reposo: las luces se apagarán tras {minutos} min sin tocar el teclado.", minutos=args.minutos))
     return 0
 
 
@@ -973,13 +988,13 @@ def cmd_sistema(args):
     if args.fabrica:
         ajustes, cambios = dict(AJUSTES_DEFECTO), {"todo": True}
     if not cambios:
-        print("Últimos ajustes del sistema enviados (el teclado no deja leerlos):")
+        print(tr("Últimos ajustes del sistema enviados (el teclado no deja leerlos):"))
         print(describir_ajustes(ajustes))
         return 0
     ajustes.update({k: v for k, v in cambios.items() if k in ajustes})
     if enviar_ajustes(ajustes):
         return 1
-    print("Ajustes del sistema enviados:")
+    print(tr("Ajustes del sistema enviados:"))
     print(describir_ajustes(ajustes))
     return 0
 
@@ -1082,19 +1097,19 @@ def entrada_asignacion(asignacion, macros):
         texto = destino[len("texto:"):]
         eventos = eventos_texto(texto) if texto else None
         if not eventos:
-            raise ValueError(f"No sé escribir '{texto}' con una macro "
-                             "(solo letras sin tilde, números, espacio y símbolos básicos).")
+            raise ValueError(tr("No sé escribir '{texto}' con una macro "
+                                "(solo letras sin tilde, números, espacio y símbolos básicos).", texto=texto))
         modo = asignacion.get("modo") or "una"
         veces = int(asignacion.get("veces") or 1)
         if modo not in MODO_MACRO or not 1 <= veces <= 255:
-            raise ValueError(f"Modo o repeticiones no válidos en '{destino}'.")
+            raise ValueError(tr("Modo o repeticiones no válidos en '{destino}'.", destino=destino))
     else:
         entrada = entrada_tecla(destino)
         if entrada is None:
-            raise ValueError(f"No entiendo '{destino}'. Nombres válidos: python3 ak820.py teclas lista")
+            raise ValueError(tr("No entiendo '{destino}'. Nombres válidos: python3 ak820.py teclas lista", destino=destino))
         return entrada
     if len(macros) >= 100:
-        raise ValueError("Como mucho caben 100 macros.")
+        raise ValueError(tr("Como mucho caben 100 macros."))
     macros.append(eventos)
     return bytes([0x06, len(macros) - 1, MODO_MACRO[modo], veces])
 
@@ -1111,16 +1126,16 @@ def preparar_teclas(config):
         for origen, asignacion in config.get(capa, {}).items():
             posicion = POSICION_TECLA.get(origen)
             if posicion is None:
-                raise ValueError(f"No conozco la tecla '{origen}'.")
+                raise ValueError(tr("No conozco la tecla '{tecla}'.", tecla=origen))
             if capa == "fn" and posicion in NO_CAMBIABLES_FN:
-                raise ValueError(f"'{origen}' no se puede cambiar en la capa con Fn.")
+                raise ValueError(tr("'{tecla}' no se puede cambiar en la capa con Fn.", tecla=origen))
             try:
                 cambios[posicion] = entrada_asignacion(asignacion, macros)
             except ValueError as e:
-                raise ValueError(f"{origen} ({NOMBRE_CAPA[capa]}): {e}") from None
+                raise ValueError(f"{origen} ({tr(NOMBRE_CAPA[capa])}): {e}") from None
         tablas[capa] = tabla_teclas(cambios)
     if macros and (bloque_macros(macros) is None or bloque_macros(macros, TROZO_24G) is None):
-        raise ValueError("Las macros no caben en la memoria del teclado (3,5 KB). Acórtalas.")
+        raise ValueError(tr("Las macros no caben en la memoria del teclado (3,5 KB). Acórtalas."))
     return tablas, macros
 
 
@@ -1139,7 +1154,7 @@ def subir_macros(dispositivo, bloque):
         respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
         if respuesta and int.from_bytes(respuesta[5:7], "little") == sum(bloque) & 0xFFFF:
             return True
-        print(f"  Las macros no han llegado bien (intento {intento}); repitiendo...")
+        print(tr("  Las macros no han llegado bien (intento {intento}); repitiendo...", intento=intento))
     return False
 
 
@@ -1156,7 +1171,7 @@ def subir_tabla(dispositivo, comando, tabla):
         if respuesta and int.from_bytes(respuesta[5:7], "little") == sum(tabla) & 0xFFFF:
             enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
             return True
-        print(f"  La tabla de teclas no ha llegado bien (intento {intento}); repitiendo...")
+        print(tr("  La tabla de teclas no ha llegado bien (intento {intento}); repitiendo...", intento=intento))
     return False
 
 
@@ -1180,17 +1195,17 @@ def enviar_teclas(config):
             for capa in CAPAS:
                 tramas += tramas_24g(ORDEN_24G[capa], tablas[capa])
             if not enviar_24g(dispositivo, tramas):
-                print("El receptor 2.4G no ha confirmado las teclas. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                print(sin_respuesta_24g("las teclas"))
                 return False
             guardar_teclas(config)
             return True
         bloque = bloque_macros(macros) if macros else None
         if bloque and not subir_macros(dispositivo, bloque):
-            print("No consigo guardar las macros en el teclado. Prueba otra vez.")
+            print(tr("No consigo guardar las macros en el teclado. Prueba otra vez."))
             return False
         for capa, comando in CAPAS.items():
             if not subir_tabla(dispositivo, comando, tablas[capa]):
-                print("No consigo guardar las teclas en el teclado. Prueba otra vez.")
+                print(tr("No consigo guardar las teclas en el teclado. Prueba otra vez."))
                 return False
     finally:
         dispositivo.close()
@@ -1203,9 +1218,9 @@ def describir_asignacion(asignacion):
     if destino.lower().startswith("texto:"):
         modo = asignacion.get("modo") or "una"
         if modo == "veces":
-            return f"{destino} ({asignacion.get('veces', 1)} veces)"
+            return tr("{destino} ({veces} veces)", destino=destino, veces=asignacion.get("veces", 1))
         if modo != "una":
-            return f"{destino} (modo {modo})"
+            return tr("{destino} (modo {modo})", destino=destino, modo=modo)
     return destino
 
 
@@ -1214,24 +1229,25 @@ def describir_teclas(config):
     for capa in CAPAS:
         cambios = config.get(capa, {})
         resumen = ", ".join(f"{origen}={describir_asignacion(a)}" for origen, a in cambios.items())
-        lineas.append(f"  {NOMBRE_CAPA[capa][0].upper()}{NOMBRE_CAPA[capa][1:]}: {resumen or 'de fábrica'}")
+        nombre = tr(NOMBRE_CAPA[capa])
+        lineas.append(f"  {nombre[0].upper()}{nombre[1:]}: {resumen or tr('de fábrica')}")
     return "\n".join(lineas)
 
 
 def cmd_teclas(args):
     if args.cambios == ["lista"]:
-        print("Teclas que se pueden cambiar (origen, como están rotuladas):")
+        print(tr("Teclas que se pueden cambiar (origen, como están rotuladas):"))
         print("  " + " ".join(sorted(POSICION_TECLA)))
-        print("Destinos: una tecla, o una combinación con '+' (p. ej. cmd+c, ctrl+shift+t):")
+        print(tr("Destinos: una tecla, o una combinación con '+' (p. ej. cmd+c, ctrl+shift+t):"))
         print("  " + " ".join(sorted(CODIGO_TECLA)))
-        print("Modificadores:", " ".join(sorted(MODIFICADOR)))
-        print("Multimedia:", " ".join(MULTIMEDIA))
-        print("Ratón:", " ".join(RATON), "doble_clic")
-        print("Para devolver una sola tecla a lo de fábrica: tecla=defecto (p. ej. avpag=defecto)")
+        print(tr("Modificadores:"), " ".join(sorted(MODIFICADOR)))
+        print(tr("Multimedia:"), " ".join(MULTIMEDIA))
+        print(tr("Ratón:"), " ".join(RATON), "doble_clic")
+        print(tr("Para devolver una sola tecla a lo de fábrica: tecla=defecto (p. ej. avpag=defecto)"))
         return 0
     config = cargar_teclas()
     if not args.cambios:
-        print("Teclas cambiadas (las últimas enviadas desde este Mac):")
+        print(tr("Teclas cambiadas (las últimas enviadas desde este Mac):"))
         print(describir_teclas(config))
         return 0
     capa = "fn" if args.fn else "normal"
@@ -1244,7 +1260,7 @@ def cmd_teclas(args):
             origen, igual, destino = cambio.partition("=")
             origen = origen.lower()
             if not igual or origen not in POSICION_TECLA or not destino:
-                print(f"No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista")
+                print(tr("No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista", cambio=cambio))
                 return 1
             nombre = NOMBRE_TECLA[POSICION_TECLA[origen]]
             if destino.lower() == "defecto":
@@ -1261,7 +1277,7 @@ def cmd_teclas(args):
     except ValueError as e:
         print(e)
         return 1
-    print("Teclas guardadas en el teclado:")
+    print(tr("Teclas guardadas en el teclado:"))
     print(describir_teclas(config))
     return 0
 
@@ -1271,9 +1287,9 @@ def cmd_imagen(args):
     datos_info = buscar_interfaz(DATOS_USAGE_PAGE)
     if control_info is None or datos_info is None:
         if buscar_receptor() is not None:
-            print("La pantalla solo se puede cambiar por cable (por el receptor 2.4G, no).")
+            print(tr("La pantalla solo se puede cambiar por cable (por el receptor 2.4G, no)."))
         else:
-            print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+            print(tr("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar"))
         return 1
     from PIL import Image
     if args.archivo == "prueba":
@@ -1282,13 +1298,13 @@ def cmd_imagen(args):
         imagen = Image.open(args.archivo)
     lista = fotogramas(imagen)
     if len(lista) > MAX_FOTOGRAMAS:
-        print(f"El GIF tiene {len(lista)} fotogramas; el teclado admite {MAX_FOTOGRAMAS}. "
-              f"Se envían los primeros {MAX_FOTOGRAMAS}.")
+        print(tr("El GIF tiene {n} fotogramas; el teclado admite {maximo}. Se envían los primeros {maximo}.",
+                 n=len(lista), maximo=MAX_FOTOGRAMAS))
         lista = lista[:MAX_FOTOGRAMAS]
     bloques = bloques_imagen(lista)
     if len(lista) > 1:
-        print(f"GIF animado: {len(lista)} fotogramas, {len(bloques)} bloques "
-              f"(unos {len(bloques) * 45 // 1000 + 1} s).")
+        print(tr("GIF animado: {n} fotogramas, {bloques} bloques (unos {segundos} s).",
+                 n=len(lista), bloques=len(bloques), segundos=len(bloques) * 45 // 1000 + 1))
 
     aviso = bytearray(paquete_control(CMD_IMAGEN, byte2=HUECO_IMAGEN, byte8=len(bloques) & 0xFF))
     aviso[9] = len(bloques) >> 8                     # el n.º de bloques ocupa dos bytes
@@ -1303,12 +1319,12 @@ def cmd_imagen(args):
         for n, bloque in enumerate(bloques, 1):
             datos.write(b"\x00" + bloque)
             if not datos.read(PACKET_SIZE + 1, 3000):   # espera el "recibido"
-                print(f"El teclado no ha confirmado el bloque {n}/{len(bloques)}.")
-                print("Vuelve a la pantalla normal con: python3 ak820.py reloj")
+                print(tr("El teclado no ha confirmado el bloque {n}/{total}.", n=n, total=len(bloques)))
+                print(tr("Vuelve a la pantalla normal con: python3 ak820.py reloj"))
                 return 1
             if n * 10 // len(bloques) > avance or n == len(bloques):
                 avance = n * 10 // len(bloques)
-                print(f"  {n * 100 // len(bloques)} % enviado")
+                print("  " + tr("{porcentaje} % enviado", porcentaje=n * 100 // len(bloques)))
         enviar(control, paquete_control(CMD_CONFIRMAR, byte8=0x00))
         time.sleep(0.1)
     finally:
@@ -1319,58 +1335,58 @@ def cmd_imagen(args):
     except Exception:                                   # sin copia, pero la imagen ya está subida
         vista = None
     guardar_modo_pantalla("imagen", vista, "prueba" if args.archivo == "prueba" else os.path.basename(args.archivo))
-    print("Imagen enviada. Mira la pantalla del teclado.")
-    print("Para volver al reloj: python3 ak820.py reloj")
+    print(tr("Imagen enviada. Mira la pantalla del teclado."))
+    print(tr("Para volver al reloj: python3 ak820.py reloj"))
     return 0
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Configurador del Ajazz AK820 Pro para Mac")
+    parser = argparse.ArgumentParser(description=tr("Configurador del Ajazz AK820 Pro para Mac"))
     sub = parser.add_subparsers(dest="comando", required=True)
-    sub.add_parser("buscar", help="comprobar que el Mac ve el teclado (no cambia nada)")
-    r = sub.add_parser("reloj", help="poner en hora la pantalla del teclado")
-    r.add_argument("--hora", help="hora concreta, formato 'AAAA-MM-DD HH:MM' (por defecto, ahora)")
-    l = sub.add_parser("luces", help="cambiar las luces RGB")
-    l.add_argument("efecto", choices=EFECTOS, help="efecto de luz")
-    l.add_argument("--color", default="FFFFFF", help="color en hexadecimal, p. ej. FF0000 (rojo)")
-    l.add_argument("--brillo", type=int, default=5, help="0 a 5 (por defecto 5)")
-    l.add_argument("--velocidad", type=int, default=3, help="0 a 5 (por defecto 3)")
+    sub.add_parser("buscar", help=tr("comprobar que el Mac ve el teclado (no cambia nada)"))
+    r = sub.add_parser("reloj", help=tr("poner en hora la pantalla del teclado"))
+    r.add_argument("--hora", help=tr("hora concreta, formato 'AAAA-MM-DD HH:MM' (por defecto, ahora)"))
+    l = sub.add_parser("luces", help=tr("cambiar las luces RGB"))
+    l.add_argument("efecto", choices=EFECTOS, help=tr("efecto de luz"))
+    l.add_argument("--color", default="FFFFFF", help=tr("color en hexadecimal, p. ej. FF0000 (rojo)"))
+    l.add_argument("--brillo", type=int, default=5, help=tr("0 a 5 (por defecto 5)"))
+    l.add_argument("--velocidad", type=int, default=3, help=tr("0 a 5 (por defecto 3)"))
     l.add_argument("--direccion", choices=DIRECCIONES, default="izquierda")
-    l.add_argument("--arcoiris", action="store_true", help="usar todos los colores en vez de uno")
-    s = sub.add_parser("reposo", help="apagar las luces tras un tiempo sin usar el teclado")
-    s.add_argument("minutos", choices=REPOSO, help="1, 5, 30 o nunca")
-    si = sub.add_parser("sistema", help="otros ajustes: tecla Fn, tiempo de respuesta, bloquear Win/Alt+F4/Alt+Tab")
+    l.add_argument("--arcoiris", action="store_true", help=tr("usar todos los colores en vez de uno"))
+    s = sub.add_parser("reposo", help=tr("apagar las luces tras un tiempo sin usar el teclado"))
+    s.add_argument("minutos", choices=REPOSO, help=tr("1, 5, 30 o nunca"))
+    si = sub.add_parser("sistema", help=tr("otros ajustes: tecla Fn, tiempo de respuesta, bloquear Win/Alt+F4/Alt+Tab"))
     si.add_argument("--fn-modo", choices=MODO_FN,
-                    help="mantener: la capa Fn solo mientras se mantiene Fn; alternar: Fn la activa/desactiva")
+                    help=tr("mantener: la capa Fn solo mientras se mantiene Fn; alternar: Fn la activa/desactiva"))
     si.add_argument("--respuesta", type=int, choices=range(1, 6), metavar="1-5",
-                    help="tiempo de respuesta de las teclas (antirrebote): 1 rápido ... 5 lento; de fábrica 2")
-    si.add_argument("--reposo", choices=REPOSO, help="igual que la orden 'reposo'")
-    si.add_argument("--bloquear", nargs="+", choices=["win", "altf4", "alttab"], help="bloquear teclas/atajos")
+                    help=tr("tiempo de respuesta de las teclas (antirrebote): 1 rápido ... 5 lento; de fábrica 2"))
+    si.add_argument("--reposo", choices=REPOSO, help=tr("igual que la orden 'reposo'"))
+    si.add_argument("--bloquear", nargs="+", choices=["win", "altf4", "alttab"], help=tr("bloquear teclas/atajos"))
     si.add_argument("--desbloquear", nargs="+", choices=["win", "altf4", "alttab"])
-    si.add_argument("--fabrica", action="store_true", help="volver a los ajustes de fábrica")
-    m = sub.add_parser("musica", help="las luces siguen el sonido del Mac (modo música)")
-    m.add_argument("--modo", choices=MODO_MUSICA, default="verde-amarillo-rojo", help="colores del ecualizador")
-    m.add_argument("--segundos", type=int, help="pararlo solo al cabo de N segundos")
-    c = sub.add_parser("colores", help="un color para cada tecla (efecto 'personal')")
+    si.add_argument("--fabrica", action="store_true", help=tr("volver a los ajustes de fábrica"))
+    m = sub.add_parser("musica", help=tr("las luces siguen el sonido del Mac (modo música)"))
+    m.add_argument("--modo", choices=MODO_MUSICA, default="verde-amarillo-rojo", help=tr("colores del ecualizador"))
+    m.add_argument("--segundos", type=int, help=tr("pararlo solo al cabo de N segundos"))
+    c = sub.add_parser("colores", help=tr("un color para cada tecla (efecto 'personal')"))
     c.add_argument("cambios", nargs="*",
-                   help="tecla=RRGGBB (p. ej. avpag=FF0000), tecla=defecto, 'restaurar' o 'reenviar'. "
-                        "Sin nada, enseña los colores guardados")
-    c.add_argument("--fondo", help="color de las teclas sin color propio (000000 = apagadas)")
-    c.add_argument("--brillo", type=int, choices=range(1, 6), metavar="1-5", help="brillo (1 a 5)")
-    i = sub.add_parser("imagen", help="poner una imagen en la pantalla del teclado")
-    i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
-    t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
+                   help=tr("tecla=RRGGBB (p. ej. avpag=FF0000), tecla=defecto, 'restaurar' o 'reenviar'. "
+                        "Sin nada, enseña los colores guardados"))
+    c.add_argument("--fondo", help=tr("color de las teclas sin color propio (000000 = apagadas)"))
+    c.add_argument("--brillo", type=int, choices=range(1, 6), metavar="1-5", help=tr("brillo (1 a 5)"))
+    i = sub.add_parser("imagen", help=tr("poner una imagen en la pantalla del teclado"))
+    i.add_argument("archivo", help=tr("foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores"))
+    t = sub.add_parser("teclas", help=tr("cambiar lo que escribe cada tecla (se guarda en el teclado)"))
     t.add_argument("cambios", nargs="*",
-                   help="origen=destino (p. ej. avpag=b, repag=cmd+c, supr=volumen+, avpag=texto:hola, "
+                   help=tr("origen=destino (p. ej. avpag=b, repag=cmd+c, supr=volumen+, avpag=texto:hola, "
                         "avpag=defecto); 'restaurar' (la capa), 'restaurar todo', 'reenviar' o 'lista'. "
-                        "Sin nada, enseña las teclas cambiadas")
-    t.add_argument("--fn", action="store_true", help="cambiar la capa con Fn (Fn + tecla) en vez de la normal")
+                        "Sin nada, enseña las teclas cambiadas"))
+    t.add_argument("--fn", action="store_true", help=tr("cambiar la capa con Fn (Fn + tecla) en vez de la normal"))
     t.add_argument("--veces", type=int, default=1, choices=range(1, 256), metavar="N",
-                   help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")
+                   help=tr("para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)"))
     t.add_argument("--modo", choices=MODO_MACRO,
-                   help="cómo se reproducen las macros: una (por defecto), veces (con --veces), "
+                   help=tr("cómo se reproducen las macros: una (por defecto), veces (con --veces), "
                         "alternar (hasta volver a pulsar), mantener (mientras se mantiene), "
-                        "paso (cada pulsación escribe la siguiente tecla)")
+                        "paso (cada pulsación escribe la siguiente tecla)"))
     args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo,

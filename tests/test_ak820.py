@@ -660,3 +660,41 @@ class Editor(ConTecladoFalso):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Idiomas(unittest.TestCase):
+    """Cada idioma de idiomas/ tiene todas las frases, con los mismos {huecos}."""
+
+    def setUp(self):
+        import sys
+        carpeta = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "idiomas")
+        sys.path.insert(0, carpeta)
+        import frases
+        self.frases = frases
+        self.catalogos = {}
+        for nombre in os.listdir(carpeta):
+            if nombre.endswith(".json"):
+                with open(os.path.join(carpeta, nombre), encoding="utf-8") as f:
+                    self.catalogos[nombre[:-5]] = json.load(f)
+
+    def test_estan_todas_y_con_los_mismos_huecos(self):
+        self.assertIn("en", self.catalogos)
+        for idioma, catalogo in self.catalogos.items():
+            with self.subTest(idioma=idioma):
+                self.assertEqual(sorted(self.frases.todas() - set(catalogo)), [])
+                for es, traduccion in catalogo.items():
+                    self.assertEqual(self.frases.huecos(es), self.frases.huecos(traduccion), es)
+
+    def test_los_trozos_que_se_buscan_siguen_en_las_frases(self):
+        # La app y el servidor buscan estos trozos (traducidos) en lo que imprime ak820.py.
+        for catalogo in self.catalogos.values():
+            for trozo in ("No encuentro el teclado", "No veo ningún", "No aparece la interfaz", "Para volver", "repitiendo"):
+                for es, traduccion in catalogo.items():
+                    if trozo in es:
+                        self.assertIn(catalogo[trozo], traduccion, es)
+
+    def test_tr(self):
+        import idioma
+        with mock.patch.object(idioma, "TEXTOS", {"Nivel {n}": "Level {n}"}):
+            self.assertEqual(idioma.tr("Nivel {n}", n=3), "Level 3")
+            self.assertEqual(idioma.tr("Sin traducir {texto}", texto="x"), "Sin traducir x")

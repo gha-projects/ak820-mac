@@ -12,6 +12,8 @@ from AppKit import (NSAlert, NSAlertFirstButtonReturn, NSApp, NSApplicationActiv
 from Foundation import NSObject, NSURL, NSURLRequest
 from WebKit import WKWebView, WKWebViewConfiguration
 
+from idioma import tr
+
 ESTILO = (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable)
 HAY_CAMBIOS = "(typeof catalogo !== 'undefined' && catalogo && typeof cambiosSinEnviar === 'function') ? cambiosSinEnviar() : 0"
@@ -28,13 +30,13 @@ def menu_principal():
             if texto is None:
                 menu.addItem_(NSMenuItem.separatorItem())
             else:
-                menu.addItemWithTitle_action_keyEquivalent_(texto, accion, tecla)
+                menu.addItemWithTitle_action_keyEquivalent_(tr(texto), accion, tecla)
         item.setSubmenu_(menu)
         principal.addItem_(item)
 
     submenu("AK820", [("Cerrar ventana", "performClose:", "w"), (None, None, None),
                       ("Salir de AK820", "terminate:", "q")])
-    submenu("Edición", [("Deshacer", "undo:", "z"), ("Rehacer", "redo:", "Z"), (None, None, None),
+    submenu(tr("Edición"), [("Deshacer", "undo:", "z"), ("Rehacer", "redo:", "Z"), (None, None, None),
                         ("Cortar", "cut:", "x"), ("Copiar", "copy:", "c"), ("Pegar", "paste:", "v"),
                         ("Seleccionar todo", "selectAll:", "a")])
     return principal
@@ -89,10 +91,10 @@ class Ventana(NSObject):
         def respuesta(cambios, _error):
             if cambios:
                 aviso = NSAlert.alloc().init()
-                aviso.setMessageText_("Hay cambios sin enviar al teclado")
-                aviso.setInformativeText_("Si cierras la ventana, se pierden.")
-                aviso.addButtonWithTitle_("Cerrar igualmente")
-                aviso.addButtonWithTitle_("Cancelar")
+                aviso.setMessageText_(tr("Hay cambios sin enviar al teclado"))
+                aviso.setInformativeText_(tr("Si cierras la ventana, se pierden."))
+                aviso.addButtonWithTitle_(tr("Cerrar igualmente"))
+                aviso.addButtonWithTitle_(tr("Cancelar"))
                 if aviso.runModal() != NSAlertFirstButtonReturn:
                     return
             self.cerrar_ya = True
@@ -116,8 +118,8 @@ class Ventana(NSObject):
     def webView_runJavaScriptConfirmPanelWithMessage_initiatedByFrame_completionHandler_(self, _web, mensaje, _marco, listo):
         aviso = NSAlert.alloc().init()
         aviso.setMessageText_(mensaje)
-        aviso.addButtonWithTitle_("Aceptar")
-        aviso.addButtonWithTitle_("Cancelar")
+        aviso.addButtonWithTitle_(tr("Aceptar"))
+        aviso.addButtonWithTitle_(tr("Cancelar"))
         listo(aviso.runModal() == NSAlertFirstButtonReturn)
 
     def webView_runOpenPanelWithParameters_initiatedByFrame_completionHandler_(self, _web, parametros, _marco, listo):

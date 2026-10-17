@@ -124,12 +124,12 @@
   <header>
     <h1>AK820 <small>Ajazz AK820 Pro</small></h1>
     <div class="segmentos" role="group" aria-label="Secciones">
-      <button type="button" data-ir="teclas" aria-pressed="true">Teclas</button>
-      <button type="button" data-ir="luces" aria-pressed="false">Luces</button>
-      <button type="button" data-ir="pantalla" aria-pressed="false">Pantalla</button>
-      <button type="button" data-ir="ajustes" aria-pressed="false">Ajustes</button>
+      <button type="button" data-ir="teclas" aria-pressed="true" data-t>Teclas</button>
+      <button type="button" data-ir="luces" aria-pressed="false" data-t>Luces</button>
+      <button type="button" data-ir="pantalla" aria-pressed="false" data-t>Pantalla</button>
+      <button type="button" data-ir="ajustes" aria-pressed="false" data-t>Ajustes</button>
     </div>
-    <span id="conexion" class="conexion">Comprobando…</span>
+    <span id="conexion" class="conexion" data-t>Comprobando…</span>
   </header>
 
   <p id="mensaje" role="status"></p>
@@ -137,75 +137,75 @@
   <div data-pestana="teclas">
   <div class="cabecera-seccion">
     <div class="segmentos" role="group" aria-label="Capa">
-      <button type="button" data-capa="normal" aria-pressed="true">Capa normal</button>
-      <button type="button" data-capa="fn" aria-pressed="false">Capa Fn (Fn + tecla)</button>
+      <button type="button" data-capa="normal" aria-pressed="true" data-t>Capa normal</button>
+      <button type="button" data-capa="fn" aria-pressed="false" data-t>Capa Fn (Fn + tecla)</button>
     </div>
   </div>
 
   <section class="tarjeta" id="zona-teclado">
     <div id="teclado" aria-label="Teclado"></div>
     <div class="leyenda">
-      <span class="l-cambiada">Cambiada en el teclado</span>
-      <span class="l-pendiente">Cambio sin enviar</span>
-      <span class="l-apagada">No se puede cambiar en esta capa</span>
+      <span class="l-cambiada" data-t>Cambiada en el teclado</span>
+      <span class="l-pendiente" data-t>Cambio sin enviar</span>
+      <span class="l-apagada" data-t>No se puede cambiar en esta capa</span>
     </div>
   </section>
 
   <section class="tarjeta" id="panel">
-    <p class="vacio">Pincha una tecla del dibujo para cambiar lo que hace.</p>
+    <p class="vacio" data-t>Pincha una tecla del dibujo para cambiar lo que hace.</p>
   </section>
   </div>
 
   <div data-pestana="luces" hidden>
     <section class="tarjeta">
-      <h2>Efecto</h2>
+      <h2 data-t>Efecto</h2>
       <div class="opciones" id="efectos"></div>
       <div id="controles-efecto">
-      <h2>Color</h2>
+      <h2 data-t>Color</h2>
       <div class="muestras" id="muestras">
         <input type="color" id="color" title="Otro color">
-        <label class="chip"><input type="checkbox" id="arcoiris"> Arcoíris (todos los colores)</label>
+        <label class="chip"><input type="checkbox" id="arcoiris"> <span data-t>Arcoíris (todos los colores)</span></label>
       </div>
       <div class="deslizadores">
-        <label>Brillo <input type="range" id="brillo" min="1" max="5"><span class="valor" id="brillo-valor"></span></label>
-        <label>Velocidad <input type="range" id="velocidad" min="0" max="5"><span class="valor" id="velocidad-valor"></span></label>
-        <label>Dirección <select id="direccion"></select></label>
+        <label><span data-t>Brillo</span> <input type="range" id="brillo" min="1" max="5"><span class="valor" id="brillo-valor"></span></label>
+        <label><span data-t>Velocidad</span> <input type="range" id="velocidad" min="0" max="5"><span class="valor" id="velocidad-valor"></span></label>
+        <label><span data-t>Dirección</span> <select id="direccion"></select></label>
       </div>
       </div>
       <div id="musica-panel" hidden>
-        <h2>Modo música</h2>
-        <p class="nota">Las luces siguen el sonido del Mac: cada columna de teclas es una banda, con los
+        <h2 data-t>Modo música</h2>
+        <p class="nota" data-t>Las luces siguen el sonido del Mac: cada columna de teclas es una banda, con los
           graves a la izquierda. La primera vez, macOS pide permiso para «grabar el audio del sistema».
           Mientras está en marcha no se pueden cambiar otras cosas del teclado.</p>
         <div class="opciones" id="modos-musica"></div>
-        <div class="botones"><button type="button" class="boton principal" id="boton-musica">▶︎ Empezar</button></div>
+        <div class="botones"><button type="button" class="boton principal" id="boton-musica" data-t>▶︎ Empezar</button></div>
         <p class="estado-linea" id="estado-musica"></p>
       </div>
       <div id="pintor" hidden>
-        <h2>Pinta las teclas</h2>
-        <p class="nota">Elige un color y pincha las teclas (o arrastra por encima). Las rayadas están apagadas.</p>
+        <h2 data-t>Pinta las teclas</h2>
+        <p class="nota" data-t>Elige un color y pincha las teclas (o arrastra por encima). Las rayadas están apagadas.</p>
         <div class="muestras" id="pinceles">
           <input type="color" id="pincel-color" title="Otro color">
         </div>
         <div class="marco-pintura"><div id="pintura"></div></div>
         <div class="fila">
-          <span>El resto de teclas:</span>
+          <span data-t>El resto de teclas:</span>
           <input type="color" id="fondo" title="Color del resto de teclas">
-          <button type="button" class="boton" id="fondo-apagado">Apagadas</button>
-          <button type="button" class="boton" id="pintar-todas">Todas del color elegido</button>
+          <button type="button" class="boton" id="fondo-apagado" data-t>Apagadas</button>
+          <button type="button" class="boton" id="pintar-todas" data-t>Todas del color elegido</button>
         </div>
         <div class="deslizadores">
-          <label>Brillo <input type="range" id="pintura-brillo" min="1" max="5"><span class="valor" id="pintura-brillo-valor"></span></label>
+          <label><span data-t>Brillo</span> <input type="range" id="pintura-brillo" min="1" max="5"><span class="valor" id="pintura-brillo-valor"></span></label>
         </div>
         <div class="botones">
-          <button type="button" class="boton principal" id="enviar-colores">Enviar al teclado</button>
-          <button type="button" class="boton" id="deshacer-colores">Deshacer cambios</button>
+          <button type="button" class="boton principal" id="enviar-colores" data-t>Enviar al teclado</button>
+          <button type="button" class="boton" id="deshacer-colores" data-t>Deshacer cambios</button>
         </div>
-        <p class="nota" id="solo-cable-colores" hidden>⚠︎ Con el receptor 2.4G no se pueden mandar los colores
+        <p class="nota" id="solo-cable-colores" hidden data-t>⚠︎ Con el receptor 2.4G no se pueden mandar los colores
           tecla a tecla: conecta el teclado por cable. Los que ya tiene se quedan guardados.</p>
         <p class="estado-linea" id="estado-colores"></p>
       </div>
-      <div class="botones"><button type="button" class="boton" id="apagar-luces">Apagar las luces</button></div>
+      <div class="botones"><button type="button" class="boton" id="apagar-luces" data-t>Apagar las luces</button></div>
       <p class="estado-linea" id="estado-luces"></p>
     </section>
   </div>
@@ -217,20 +217,20 @@
         <span class="reloj" id="vista-reloj">12:34</span>
       </div>
       <div class="acciones">
-        <h2>Pantalla del teclado</h2>
+        <h2 data-t>Pantalla del teclado</h2>
         <p class="nota" id="estado-pantalla"></p>
         <input type="file" id="archivo" accept="image/*" hidden>
         <div class="botones">
-          <button type="button" class="boton" id="elegir">Elegir imagen o GIF…</button>
-          <button type="button" class="boton principal" id="enviar-imagen" disabled>Enviar a la pantalla</button>
+          <button type="button" class="boton" id="elegir" data-t>Elegir imagen o GIF…</button>
+          <button type="button" class="boton principal" id="enviar-imagen" disabled data-t>Enviar a la pantalla</button>
         </div>
-        <p class="nota" id="solo-cable-pantalla" hidden>⚠︎ Con el receptor 2.4G no se pueden mandar imágenes:
+        <p class="nota" id="solo-cable-pantalla" hidden data-t>⚠︎ Con el receptor 2.4G no se pueden mandar imágenes:
           conecta el teclado por cable. (Volver al reloj sí funciona.)</p>
         <progress id="progreso" max="100" value="0" hidden></progress>
         <div class="botones">
-          <button type="button" class="boton" id="volver-reloj">Volver al reloj y ponerlo en hora</button>
+          <button type="button" class="boton" id="volver-reloj" data-t>Volver al reloj y ponerlo en hora</button>
         </div>
-        <p class="nota">Se recorta al centro a 128 × 128 píxeles. Los GIF pueden tener hasta 140
+        <p class="nota" data-t>Se recorta al centro a 128 × 128 píxeles. Los GIF pueden tener hasta 140
           fotogramas (los demás se cortan) y tardan unos segundos en subir. También puedes
           arrastrar el archivo encima del recuadro.</p>
       </div>
@@ -239,21 +239,21 @@
 
   <div data-pestana="ajustes" hidden>
     <section class="tarjeta">
-      <h2>Tecla Fn</h2>
+      <h2 data-t>Tecla Fn</h2>
       <div id="ajuste-fn"></div>
-      <h2>Apagar las luces si no se usa</h2>
+      <h2 data-t>Apagar las luces si no se usa</h2>
       <div class="segmentos" id="ajuste-reposo"></div>
-      <p class="nota">Solo con batería (por Bluetooth o 2.4G): enchufado por cable no se apagan.</p>
-      <h2>Tiempo de respuesta de las teclas</h2>
+      <p class="nota" data-t>Solo con batería (por Bluetooth o 2.4G): enchufado por cable no se apagan.</p>
+      <h2 data-t>Tiempo de respuesta de las teclas</h2>
       <div class="deslizadores">
-        <label>Nivel <input type="range" id="respuesta" min="1" max="5"><span class="valor" id="respuesta-valor"></span></label>
+        <label><span data-t>Nivel</span> <input type="range" id="respuesta" min="1" max="5"><span class="valor" id="respuesta-valor"></span></label>
       </div>
-      <p class="nota">1 es el más rápido y 5 el más lento; de fábrica, 2. Escribiendo normal no se nota.</p>
-      <h2>Bloqueos (solo en modo Windows)</h2>
+      <p class="nota" data-t>1 es el más rápido y 5 el más lento; de fábrica, 2. Escribiendo normal no se nota.</p>
+      <h2 data-t>Bloqueos (solo en modo Windows)</h2>
       <div class="fila" id="ajuste-bloqueos"></div>
       <div class="botones">
-        <button type="button" class="boton principal" id="guardar-ajustes">Guardar en el teclado</button>
-        <button type="button" class="boton" id="ajustes-fabrica">Valores de fábrica</button>
+        <button type="button" class="boton principal" id="guardar-ajustes" data-t>Guardar en el teclado</button>
+        <button type="button" class="boton" id="ajustes-fabrica" data-t>Valores de fábrica</button>
       </div>
       <p class="estado-linea" id="estado-ajustes"></p>
     </section>
@@ -262,15 +262,28 @@
 
 <div id="barra">
   <div class="dentro">
-    <span id="estado">Cargando…</span>
-    <button type="button" class="boton" id="deshacer">Deshacer cambios</button>
-    <button type="button" class="boton" id="fabrica">Todo de fábrica</button>
-    <button type="button" class="boton principal" id="enviar">Enviar al teclado</button>
+    <span id="estado" data-t>Cargando…</span>
+    <button type="button" class="boton" id="deshacer" data-t>Deshacer cambios</button>
+    <button type="button" class="boton" id="fabrica" data-t>Todo de fábrica</button>
+    <button type="button" class="boton principal" id="enviar" data-t>Enviar al teclado</button>
   </div>
 </div>
 
 <script>
 "use strict";
+// Idioma: el servidor pone aquí las traducciones (idiomas/<idioma>.json) y el idioma del Mac.
+const TEXTOS = {} /*TEXTOS*/;
+const IDIOMA = "es" /*IDIOMA*/;
+function tr(frase, datos) {
+  const texto = TEXTOS[frase] || frase;
+  return datos ? texto.replace(/\{(\w+)\}/g, (todo, hueco) => (hueco in datos ? datos[hueco] : todo)) : texto;
+}
+(function traducirPagina() {
+  document.documentElement.lang = IDIOMA;
+  for (const el of document.querySelectorAll("[data-t]")) el.textContent = tr(el.textContent.replace(/\s+/g, " ").trim());
+  for (const el of document.querySelectorAll("[title]")) el.title = tr(el.title);
+  for (const el of document.querySelectorAll("[aria-label]")) el.setAttribute("aria-label", tr(el.getAttribute("aria-label")));
+})();
 const CLAVE = new URLSearchParams(location.hash.slice(1)).get("clave") || "";
 const ANCHO_TECLADO = 610, ALTO_TECLADO = 236;
 
@@ -278,23 +291,23 @@ const ANCHO_TECLADO = 610, ALTO_TECLADO = 236;
 const SIMBOLO_MOD = { ctrl: "⌃", shift: "⇧", option: "⌥", alt: "⌥", cmd: "⌘", win: "⌘",
                       ctrl_der: "⌃", shift_der: "⇧", option_der: "⌥", alt_der: "⌥", cmd_der: "⌘", win_der: "⌘" };
 const NOMBRE_MOD = { ctrl: "⌃ Control", shift: "⇧ Shift", option: "⌥ Option", cmd: "⌘ Cmd" };
-const NOMBRE_TECLA = { enter: "↩ Enter", esc: "Esc", borrar: "⌫ Borrar", tab: "⇥ Tab", espacio: "Espacio",
-  bloqmayus: "⇪ Bloq Mayús", imprpant: "Impr Pant", insert: "Insert", inicio: "Inicio", fin: "Fin",
-  repag: "RePág", avpag: "AvPág", supr: "Supr", arriba: "↑", abajo: "↓", izquierda: "←", derecha: "→" };
-const CORTO_TECLA = { enter: "↩", borrar: "⌫", tab: "⇥", espacio: "Espacio", bloqmayus: "⇪", imprpant: "ImpPnt" };
-const MULTIMEDIA = { play: "⏯ Reproducir / pausa", siguiente: "⏭ Siguiente", anterior: "⏮ Anterior", stop: "⏹ Parar",
-  silencio: "🔇 Silencio", "volumen+": "🔊 Subir volumen", "volumen-": "🔉 Bajar volumen",
-  "brillo+": "🔆 Subir brillo", "brillo-": "🔅 Bajar brillo" };
+const NOMBRE_TECLA = { enter: tr("↩ Enter"), esc: "Esc", borrar: tr("⌫ Borrar"), tab: tr("⇥ Tab"), espacio: tr("Espacio"),
+  bloqmayus: tr("⇪ Bloq Mayús"), imprpant: tr("Impr Pant"), insert: "Insert", inicio: tr("Inicio"), fin: tr("Fin"),
+  repag: tr("RePág"), avpag: tr("AvPág"), supr: tr("Supr"), arriba: "↑", abajo: "↓", izquierda: "←", derecha: "→" };
+const CORTO_TECLA = { enter: "↩", borrar: "⌫", tab: "⇥", espacio: tr("Espacio"), bloqmayus: "⇪", imprpant: tr("ImpPnt") };
+const MULTIMEDIA = { play: tr("⏯ Reproducir / pausa"), siguiente: tr("⏭ Siguiente"), anterior: tr("⏮ Anterior"), stop: tr("⏹ Parar"),
+  silencio: tr("🔇 Silencio"), "volumen+": tr("🔊 Subir volumen"), "volumen-": tr("🔉 Bajar volumen"),
+  "brillo+": tr("🔆 Subir brillo"), "brillo-": tr("🔅 Bajar brillo") };
 const CORTO_MULTIMEDIA = { play: "⏯", siguiente: "⏭", anterior: "⏮", stop: "⏹", silencio: "🔇",
   "volumen+": "🔊+", "volumen-": "🔉−", "brillo+": "🔆+", "brillo-": "🔅−" };
-const RATON = { clic: "Clic", clic_der: "Clic derecho", clic_medio: "Clic central", doble_clic: "Doble clic",
-  rueda_arriba: "Rueda arriba", rueda_abajo: "Rueda abajo" };
-const CORTO_RATON = { clic: "Clic", clic_der: "Clic dcho", clic_medio: "Clic centr", doble_clic: "2 clics",
-  rueda_arriba: "Rueda ↑", rueda_abajo: "Rueda ↓" };
-const MODOS = { una: "Una vez", veces: "Varias veces seguidas", mantener: "Mientras se mantiene pulsada",
-  alternar: "Hasta volver a pulsarla", paso: "Una letra por pulsación" };
-const TIPOS = [["fabrica", "De fábrica"], ["tecla", "Tecla o atajo"], ["multimedia", "Multimedia"],
-               ["raton", "Ratón"], ["texto", "Escribir texto"], ["multi", "Varias a la vez"]];
+const RATON = { clic: tr("Clic"), clic_der: tr("Clic derecho"), clic_medio: tr("Clic central"), doble_clic: tr("Doble clic"),
+  rueda_arriba: tr("Rueda arriba"), rueda_abajo: tr("Rueda abajo") };
+const CORTO_RATON = { clic: tr("Clic"), clic_der: tr("Clic dcho"), clic_medio: tr("Clic centr"), doble_clic: tr("2 clics"),
+  rueda_arriba: tr("Rueda ↑"), rueda_abajo: tr("Rueda ↓") };
+const MODOS = { una: tr("Una vez"), veces: tr("Varias veces seguidas"), mantener: tr("Mientras se mantiene pulsada"),
+  alternar: tr("Hasta volver a pulsarla"), paso: tr("Una letra por pulsación") };
+const TIPOS = [["fabrica", tr("De fábrica")], ["tecla", tr("Tecla o atajo")], ["multimedia", tr("Multimedia")],
+               ["raton", tr("Ratón")], ["texto", tr("Escribir texto")], ["multi", tr("Varias a la vez")]];
 const CODIGO_NAVEGADOR = { Enter: "enter", Escape: "esc", Backspace: "borrar", Tab: "tab", Space: "espacio",
   Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\", Semicolon: ";", Quote: "'",
   Backquote: "`", Comma: ",", Period: ".", Slash: "/", CapsLock: "bloqmayus", PrintScreen: "imprpant",
@@ -319,10 +332,11 @@ function resumen(asig) {
   return partes.map((p) => SIMBOLO_MOD[p] || cortoTecla(p)).join("");
 }
 function describir(asig) {
-  if (!asig) return "De fábrica";
+  if (!asig) return tr("De fábrica");
   const d = asig.destino, dl = d.toLowerCase();
-  if (dl.startsWith("texto:")) return `Escribe “${d.slice(6)}” (${MODOS[asig.modo || "una"].toLowerCase()}${asig.modo === "veces" ? `: ${asig.veces} veces` : ""})`;
-  if (dl.startsWith("multi:")) return "Pulsa a la vez " + dl.slice(6).split("+").map(nombreTecla).join(" + ");
+  if (dl.startsWith("texto:")) return tr("Escribe “{texto}” ({modo})", { texto: d.slice(6),
+    modo: MODOS[asig.modo || "una"].toLowerCase() + (asig.modo === "veces" ? tr(": {n} veces", { n: asig.veces }) : "") });
+  if (dl.startsWith("multi:")) return tr("Pulsa a la vez {teclas}", { teclas: dl.slice(6).split("+").map(nombreTecla).join(" + ") });
   if (MULTIMEDIA[dl]) return MULTIMEDIA[dl];
   if (RATON[dl]) return RATON[dl];
   return dl.split("+").map((p) => SIMBOLO_MOD[p] ? NOMBRE_MOD[modBase(p)] : nombreTecla(p)).join(" + ");
@@ -356,8 +370,8 @@ async function api(ruta, cuerpo) {
   }
   let r;
   try { r = await fetch(ruta, opciones); }
-  catch (e) { throw new Error("El editor está cerrado. Ábrelo otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…)."); }
-  if (r.status === 403) throw new Error("Esta pestaña es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…).");
+  catch (e) { throw new Error(tr("El editor está cerrado. Ábrelo otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…).")); }
+  if (r.status === 403) throw new Error(tr("Esta pestaña es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…)."));
   return r.json();
 }
 function avisar(texto, tipo) {
@@ -382,18 +396,18 @@ function dibujarTeclado() {
                              width: t.ancho * escala + "px", height: t.alto * escala + "px" });
     const et = document.createElement("span");
     et.className = "et";
-    et.textContent = t.etiqueta;
+    et.textContent = tr(t.etiqueta);
     b.append(et);
     if (bloqueada(t)) {
       b.disabled = true;
-      b.title = t.nombre ? "Esta tecla no se puede cambiar en la capa Fn" : "La tecla Fn no se puede cambiar";
+      b.title = t.nombre ? tr("Esta tecla no se puede cambiar en la capa Fn") : tr("La tecla Fn no se puede cambiar");
     } else {
       const asig = actual[capa][t.nombre];
       if (t.mac && !asig) {
         const mac = document.createElement("span");
         mac.className = "mac";
         mac.textContent = t.mac;
-        b.title = `En modo Mac hace de ${t.mac === "⌘" ? "Cmd" : "Option"}`;
+        b.title = tr("En modo Mac hace de {tecla}", { tecla: t.mac === "⌘" ? "Cmd" : "Option" });
         b.append(mac);
       }
       if (asig) {
@@ -412,11 +426,12 @@ function dibujarTeclado() {
   }
   const n = pendientes();
   const estado = document.getElementById("estado");
-  estado.textContent = n ? `${n} cambio${n > 1 ? "s" : ""} sin enviar` : "El teclado tiene lo que ves";
+  estado.textContent = n ? (n === 1 ? tr("1 cambio sin enviar") : tr("{n} cambios sin enviar", { n }))
+                          : tr("El teclado tiene lo que ves");
   estado.className = n ? "hay" : "";
   document.getElementById("deshacer").disabled = !n || enviando;
   const enviar = document.getElementById("enviar");
-  enviar.textContent = enviando ? "Enviando…" : n ? "Enviar al teclado" : "Reenviar al teclado";
+  enviar.textContent = enviando ? tr("Enviando…") : n ? tr("Enviar al teclado") : tr("Reenviar al teclado");
   enviar.disabled = enviando;
   document.getElementById("fabrica").disabled = enviando;
 }
@@ -449,21 +464,21 @@ function asignacionDelBorrador() {
   switch (tipo) {
     case "fabrica": return null;
     case "tecla": {
-      if (!borrador.tecla && !(borrador.mods || []).length) throw new Error("Elige una tecla o algún modificador.");
+      if (!borrador.tecla && !(borrador.mods || []).length) throw new Error(tr("Elige una tecla o algún modificador."));
       return { destino: [...(borrador.mods || []), borrador.tecla].filter(Boolean).join("+") };
     }
     case "multimedia": case "raton":
-      if (!borrador.valor) throw new Error("Elige una opción.");
+      if (!borrador.valor) throw new Error(tr("Elige una opción."));
       return { destino: borrador.valor };
     case "texto": {
-      if (!borrador.texto) throw new Error("Escribe el texto.");
+      if (!borrador.texto) throw new Error(tr("Escribe el texto."));
       const a = { destino: "texto:" + borrador.texto, modo: borrador.modo || "una", veces: 1 };
       if (a.modo === "veces") a.veces = Math.max(2, Math.min(255, parseInt(borrador.veces, 10) || 2));
       return a;
     }
     case "multi": {
       const teclas = (borrador.teclas || []).filter(Boolean);
-      if (teclas.length < 2) throw new Error("Elige al menos dos teclas.");
+      if (teclas.length < 2) throw new Error(tr("Elige al menos dos teclas."));
       return { destino: "multi:" + teclas.join("+") };
     }
   }
@@ -471,9 +486,9 @@ function asignacionDelBorrador() {
 
 function selectorTeclas(valor, alCambiar, conVacio) {
   const s = document.createElement("select");
-  const grupos = [["Letras", (t) => /^[a-z]$/.test(t)], ["Números", (t) => /^\d$/.test(t)],
-                  ["Funciones", (t) => /^f\d+$/.test(t)], ["Navegación y edición", (t) => NOMBRE_TECLA[t]],
-                  ["Símbolos", () => true]];
+  const grupos = [[tr("Letras"), (t) => /^[a-z]$/.test(t)], [tr("Números"), (t) => /^\d$/.test(t)],
+                  [tr("Funciones"), (t) => /^f\d+$/.test(t)], [tr("Navegación y edición"), (t) => NOMBRE_TECLA[t]],
+                  [tr("Símbolos"), () => true]];
   const vacia = document.createElement("option");
   vacia.value = "";
   vacia.textContent = conVacio;
@@ -521,7 +536,7 @@ function nota(texto) {
 let quitarCaptura = null;
 function capturar(boton) {
   if (quitarCaptura) { quitarCaptura(); return; }
-  boton.textContent = "Pulsa la tecla o el atajo… (clic aquí para cancelar)";
+  boton.textContent = tr("Pulsa la tecla o el atajo… (clic aquí para cancelar)");
   boton.classList.add("captando");
   const alPulsar = (e) => {
     if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key) && e.code !== "CapsLock") return;
@@ -530,7 +545,7 @@ function capturar(boton) {
     if (!t && /^Key[A-Z]$/.test(e.code)) t = e.code.slice(3).toLowerCase();
     if (!t && /^Digit\d$/.test(e.code)) t = e.code.slice(5);
     if (!t && /^F\d+$/.test(e.code)) t = e.code.toLowerCase();
-    if (!t || !catalogo.teclas.includes(t)) { avisar("Esa tecla no se puede asignar; elígela de la lista.", "error"); return; }
+    if (!t || !catalogo.teclas.includes(t)) { avisar(tr("Esa tecla no se puede asignar; elígela de la lista."), "error"); return; }
     const mods = [];
     if (e.ctrlKey) mods.push("ctrl");
     if (e.shiftKey) mods.push("shift");
@@ -544,7 +559,7 @@ function capturar(boton) {
   quitarCaptura = () => {
     window.removeEventListener("keydown", alPulsar, true);
     quitarCaptura = null;
-    boton.textContent = "⌨︎ Capturar pulsando el atajo";
+    boton.textContent = tr("⌨︎ Capturar pulsando el atajo");
     boton.classList.remove("captando");
   };
 }
@@ -556,18 +571,18 @@ function dibujarPanel() {
   if (!elegida) {
     const p = document.createElement("p");
     p.className = "vacio";
-    p.textContent = "Pincha una tecla del dibujo para cambiar lo que hace.";
+    p.textContent = tr("Pincha una tecla del dibujo para cambiar lo que hace.");
     panel.append(p);
     return;
   }
   const t = distribucion.find((x) => x.nombre === elegida);
   const h = document.createElement("h2");
-  h.textContent = `${t.etiqueta || "Espacio"} · ${capa === "fn" ? "con Fn" : "capa normal"}`;
+  h.textContent = `${tr(t.etiqueta || tr("Espacio"))} · ${capa === "fn" ? tr("con Fn") : tr("capa normal")}`;
   const ahora = document.createElement("p");
   ahora.className = "ahora";
   const enTeclado = guardado[capa][elegida];
-  ahora.textContent = "En el teclado: " + describir(enTeclado) +
-    (igual(actual[capa][elegida], enTeclado) ? "" : " · Sin enviar: " + describir(actual[capa][elegida]));
+  ahora.textContent = tr("En el teclado: ") + describir(enTeclado) +
+    (igual(actual[capa][elegida], enTeclado) ? "" : tr(" · Sin enviar: ") + describir(actual[capa][elegida]));
   const tipos = document.createElement("div");
   tipos.className = "segmentos";
   for (const [clave, texto] of TIPOS) {
@@ -582,7 +597,7 @@ function dibujarPanel() {
 
   const cuerpo = document.createElement("div");
   if (tipo === "fabrica") {
-    cuerpo.append(nota("La tecla hará lo mismo que de fábrica."));
+    cuerpo.append(nota(tr("La tecla hará lo mismo que de fábrica.")));
   } else if (tipo === "tecla") {
     const fila = document.createElement("div");
     fila.className = "fila";
@@ -600,26 +615,26 @@ function dibujarPanel() {
       l.append(c, NOMBRE_MOD[m]);
       fila.append(l);
     }
-    fila.append(selectorTeclas(borrador.tecla, (v) => { borrador.tecla = v; }, "(solo modificadores)"));
+    fila.append(selectorTeclas(borrador.tecla, (v) => { borrador.tecla = v; }, tr("(solo modificadores)")));
     const captura = document.createElement("button");
     captura.type = "button";
     captura.className = "boton";
-    captura.textContent = "⌨︎ Capturar pulsando el atajo";
+    captura.textContent = tr("⌨︎ Capturar pulsando el atajo");
     captura.addEventListener("click", () => capturar(captura));
     cuerpo.append(fila, captura,
-      nota("Algunos atajos (⌘Tab, ⌘Espacio, ⌘Q…) los usa el Mac antes de que lleguen aquí: márcalos a mano. " +
-           "Las teclas Win y Alt hacen de ⌥ y ⌘ en modo Mac, pero una tecla cambiada manda exactamente lo que elijas."));
+      nota(tr("Algunos atajos (⌘Tab, ⌘Espacio, ⌘Q…) los usa el Mac antes de que lleguen aquí: márcalos a mano. ") +
+           tr("Las teclas Win y Alt hacen de ⌥ y ⌘ en modo Mac, pero una tecla cambiada manda exactamente lo que elijas.")));
   } else if (tipo === "multimedia" || tipo === "raton") {
     const opciones = tipo === "multimedia" ? MULTIMEDIA : RATON;
     cuerpo.append(botonesOpciones(opciones, borrador.valor, (v) => { borrador.valor = v; dibujarPanel(); }));
-    if (tipo === "raton") cuerpo.append(nota("La rueda se mueve una muesca por pulsación. Los botones atrás/adelante no existen en este teclado."));
+    if (tipo === "raton") cuerpo.append(nota(tr("La rueda se mueve una muesca por pulsación. Los botones atrás/adelante no existen en este teclado.")));
   } else if (tipo === "texto") {
     const fila = document.createElement("div");
     fila.className = "fila";
     const entrada = document.createElement("input");
     entrada.type = "text";
     entrada.maxLength = 300;
-    entrada.placeholder = "Texto que escribirá la tecla";
+    entrada.placeholder = tr("Texto que escribirá la tecla");
     entrada.value = borrador.texto || "";
     entrada.addEventListener("input", () => { borrador.texto = entrada.value; });
     const modo = document.createElement("select");
@@ -639,16 +654,16 @@ function dibujarPanel() {
     veces.addEventListener("input", () => { borrador.veces = veces.value; });
     modo.addEventListener("change", () => { borrador.modo = modo.value; veces.hidden = modo.value !== "veces"; });
     fila.append(entrada, modo, veces);
-    cuerpo.append(fila, nota("Letras sin tilde, números, espacio y símbolos básicos. El teclado escribe como un teclado inglés: " +
-                             "con el Mac en español, algunos símbolos pueden salir distintos."));
+    cuerpo.append(fila, nota(tr("Letras sin tilde, números, espacio y símbolos básicos. El teclado escribe como un teclado inglés: ") +
+                             tr("con el Mac en español, algunos símbolos pueden salir distintos.")));
   } else if (tipo === "multi") {
     const fila = document.createElement("div");
     fila.className = "fila";
     const teclas = borrador.teclas || [];
     for (let i = 0; i < 3; i++) {
-      fila.append(selectorTeclas(teclas[i], (v) => { borrador.teclas = [...(borrador.teclas || [])]; borrador.teclas[i] = v; }, i < 2 ? "Elige tecla" : "(ninguna)"));
+      fila.append(selectorTeclas(teclas[i], (v) => { borrador.teclas = [...(borrador.teclas || [])]; borrador.teclas[i] = v; }, i < 2 ? tr("Elige tecla") : tr("(ninguna)")));
     }
-    cuerpo.append(fila, nota("Hasta tres teclas normales a la vez. Para atajos con ⌘, ⇧, ⌥ o ⌃ usa «Tecla o atajo»."));
+    cuerpo.append(fila, nota(tr("Hasta tres teclas normales a la vez. Para atajos con ⌘, ⇧, ⌥ o ⌃ usa «Tecla o atajo».")));
   }
   panel.append(cuerpo);
 
@@ -657,14 +672,14 @@ function dibujarPanel() {
   const asignar = document.createElement("button");
   asignar.type = "button";
   asignar.className = "boton principal";
-  asignar.textContent = "Asignar a la tecla";
+  asignar.textContent = tr("Asignar a la tecla");
   asignar.addEventListener("click", asignarTecla);
   botones.append(asignar);
   if (!igual(actual[capa][elegida], enTeclado)) {
     const volver = document.createElement("button");
     volver.type = "button";
     volver.className = "boton";
-    volver.textContent = "Dejarla como en el teclado";
+    volver.textContent = tr("Dejarla como en el teclado");
     volver.addEventListener("click", () => {
       if (enTeclado) actual[capa][elegida] = copia(enTeclado); else delete actual[capa][elegida];
       elegir(elegida);
@@ -687,7 +702,7 @@ async function asignarTecla() {
   } else {
     delete actual[capa][elegida];
   }
-  avisar("Asignado. Cuando acabes, pulsa «Enviar al teclado».", "info");
+  avisar(tr("Asignado. Cuando acabes, pulsa «Enviar al teclado»."), "info");
   dibujarTeclado();
   dibujarPanel();
 }
@@ -695,14 +710,14 @@ async function asignarTecla() {
 // --- Botones de la barra ---------------------------------------------------------------
 async function enviarAlTeclado() {
   enviando = true;
-  avisar("Enviando al teclado…", "info");
+  avisar(tr("Enviando al teclado…"), "info");
   dibujarTeclado();
   try {
     const r = await api("/api/enviar", { config: actual });
     if (r.ok) {
       guardado = r.config;
       actual = copia(r.config);
-      avisar(r.mensaje + " Ya puedes probarlas.", "bien");
+      avisar(r.mensaje + tr(" Ya puedes probarlas."), "bien");
     } else {
       avisar(r.mensaje, "error");
     }
@@ -723,7 +738,7 @@ document.getElementById("deshacer").addEventListener("click", () => {
 });
 document.getElementById("fabrica").addEventListener("click", () => {
   actual = { normal: {}, fn: {} };
-  avisar("Todas las teclas de las dos capas quedan de fábrica. Pulsa «Enviar al teclado» para aplicarlo.", "info");
+  avisar(tr("Todas las teclas de las dos capas quedan de fábrica. Pulsa «Enviar al teclado» para aplicarlo."), "info");
   dibujarTeclado();
   if (elegida) elegir(elegida);
 });
@@ -766,7 +781,7 @@ async function vigilarConexion() {
     ponerEstadoMusica(r.musica, r.musica_error);
     if (r.progreso != null) document.getElementById("progreso").value = r.progreso;
   } catch (e) {
-    c.textContent = "Ventana sin conexión con la app";
+    c.textContent = tr("Ventana sin conexión con la app");
     c.className = "conexion no";
   }
 }
@@ -776,7 +791,7 @@ setInterval(vigilarConexion, 3000);
 let modoConexion = null;
 function ponerConexion(modo) {
   const c = document.getElementById("conexion");
-  c.textContent = { cable: "Conectado por cable", "2.4g": "Conectado con el receptor 2.4G" }[modo] || "Sin conectar";
+  c.textContent = { cable: tr("Conectado por cable"), "2.4g": tr("Conectado con el receptor 2.4G") }[modo] || tr("Sin conectar");
   c.className = "conexion " + (modo ? "si" : "no");
   if (modo !== modoConexion) {
     modoConexion = modo;
@@ -785,19 +800,19 @@ function ponerConexion(modo) {
 }
 
 // --- Luces ---------------------------------------------------------------------------------------
-const NOMBRE_EFECTO = { fijo: "Fijo", respirar: "Respirar", espectro: "Espectro", rodar: "Ola", ondas: "Ondas",
-  colores: "Colores", desplazar: "Desplazar", girar: "Girar", fluir: "Fluir", latido: "Latido", lluvia: "Lluvia",
-  brillos: "Destellos", explosion: "Explosión", lanzar: "Lanzar", ondulas: "Ondulaciones", inclinar: "Inclinar",
-  lanzadera: "Lanzadera", "una-tecla": "Al pulsar se enciende", "una-tecla-off": "Al pulsar se apaga",
-  personal: "🎨 Tecla a tecla" };
+const NOMBRE_EFECTO = { fijo: tr("Fijo"), respirar: tr("Respirar"), espectro: tr("Espectro"), rodar: tr("Ola"), ondas: tr("Ondas"),
+  colores: tr("Colores"), desplazar: tr("Desplazar"), girar: tr("Girar"), fluir: tr("Fluir"), latido: tr("Latido"), lluvia: tr("Lluvia"),
+  brillos: tr("Destellos"), explosion: tr("Explosión"), lanzar: tr("Lanzar"), ondulas: tr("Ondulaciones"), inclinar: tr("Inclinar"),
+  lanzadera: tr("Lanzadera"), "una-tecla": tr("Al pulsar se enciende"), "una-tecla-off": tr("Al pulsar se apaga"),
+  personal: tr("🎨 Tecla a tecla") };
 const PRIMEROS_EFECTOS = ["fijo", "respirar", "espectro", "rodar", "personal"];
-const NOMBRE_DIRECCION = { izquierda: "Hacia la izquierda", derecha: "Hacia la derecha", arriba: "Hacia arriba", abajo: "Hacia abajo" };
-const MUESTRAS = { FF0000: "Rojo", FF6000: "Naranja", FFD000: "Amarillo", "00FF00": "Verde", "00FFFF": "Cian",
-  "0000FF": "Azul", "8000FF": "Morado", FF00FF: "Rosa", FFFFFF: "Blanco" };
+const NOMBRE_DIRECCION = { izquierda: tr("Hacia la izquierda"), derecha: tr("Hacia la derecha"), arriba: tr("Hacia arriba"), abajo: tr("Hacia abajo") };
+const MUESTRAS = { FF0000: tr("Rojo"), FF6000: tr("Naranja"), FFD000: tr("Amarillo"), "00FF00": tr("Verde"), "00FFFF": tr("Cian"),
+  "0000FF": tr("Azul"), "8000FF": tr("Morado"), FF00FF: tr("Rosa"), FFFFFF: tr("Blanco") };
 let luces = { efecto: "fijo", color: "0000FF", brillo: 5, velocidad: 3, direccion: "izquierda", arcoiris: false };
-const NOMBRE_MODO_MUSICA = { "verde-amarillo-rojo": "Verde, amarillo y rojo", arcoiris: "Arcoíris",
-  "arcoiris-inverso": "Arcoíris al revés", degradado: "Degradado", ciclo: "Ciclo de colores", blanco: "Blanco",
-  rojo: "Rojo", naranja: "Naranja", amarillo: "Amarillo", verde: "Verde", azul: "Azul" };
+const NOMBRE_MODO_MUSICA = { "verde-amarillo-rojo": tr("Verde, amarillo y rojo"), arcoiris: tr("Arcoíris"),
+  "arcoiris-inverso": tr("Arcoíris al revés"), degradado: tr("Degradado"), ciclo: tr("Ciclo de colores"), blanco: tr("Blanco"),
+  rojo: tr("Rojo"), naranja: tr("Naranja"), amarillo: tr("Amarillo"), verde: tr("Verde"), azul: tr("Azul") };
 let verMusica = false, musicaModo = null, modoMusicaElegido = "verde-amarillo-rojo", ultimoErrorMusica = "";
 let lucesApagadas = false, enviandoLuces = false, lucesOtraVez = false, esperaLuces = null;
 
@@ -815,7 +830,7 @@ function prepararLuces() {
   const botonMusica = document.createElement("button");
   botonMusica.type = "button";
   botonMusica.dataset.efecto = "musica";
-  botonMusica.textContent = "🎵 Música";
+  botonMusica.textContent = tr("🎵 Música");
   botonMusica.addEventListener("click", () => { verMusica = true; dibujarLuces(); });
   caja.append(botonMusica);
   const modos = document.getElementById("modos-musica");
@@ -868,11 +883,11 @@ function dibujarLuces() {
   document.getElementById("color").value = "#" + luces.color.toLowerCase();
   document.getElementById("arcoiris").checked = !!luces.arcoiris;
   document.getElementById("brillo").value = Math.max(1, luces.brillo);
-  document.getElementById("brillo-valor").textContent = `${Math.max(1, luces.brillo)} de 5`;
+  document.getElementById("brillo-valor").textContent = tr("{n} de 5", { n: Math.max(1, luces.brillo) });
   const velocidad = document.getElementById("velocidad");
   velocidad.value = luces.velocidad;
   velocidad.disabled = luces.efecto === "fijo";
-  document.getElementById("velocidad-valor").textContent = luces.efecto === "fijo" ? "(el efecto Fijo no se mueve)" : `${luces.velocidad} de 5`;
+  document.getElementById("velocidad-valor").textContent = luces.efecto === "fijo" ? tr("(el efecto Fijo no se mueve)") : tr("{n} de 5", { n: luces.velocidad });
   document.getElementById("direccion").value = luces.direccion;
   const personal = luces.efecto === "personal" && !lucesApagadas && !verMusica;
   document.getElementById("controles-efecto").hidden = personal || verMusica;
@@ -900,11 +915,11 @@ async function enviarLuces() {
   enviandoLuces = true;
   if (musicaModo) await pararMusica();
   const estado = document.getElementById("estado-luces");
-  estado.textContent = "Aplicando…";
+  estado.textContent = tr("Aplicando…");
   try {
     const r = await api("/api/luces", { luces });
     if (r.ok) ultimoEfectoEnviado = luces.efecto;
-    estado.textContent = r.ok ? "Aplicado ✓" : "";
+    estado.textContent = r.ok ? tr("Aplicado ✓") : "";
     if (!r.ok) avisar(r.mensaje, "error");
   } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
   enviandoLuces = false;
@@ -913,10 +928,10 @@ async function enviarLuces() {
 
 async function apagarLuces() {
   const estado = document.getElementById("estado-luces");
-  estado.textContent = "Apagando…";
+  estado.textContent = tr("Apagando…");
   try {
     const r = await api("/api/apagar", {});
-    if (r.ok) { lucesApagadas = true; dibujarLuces(); estado.textContent = "Luces apagadas. Elige un efecto para encenderlas."; }
+    if (r.ok) { lucesApagadas = true; dibujarLuces(); estado.textContent = tr("Luces apagadas. Elige un efecto para encenderlas."); }
     else { estado.textContent = ""; avisar(r.mensaje, "error"); }
   } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
 }
@@ -932,9 +947,9 @@ function ponerLuces(guardadas) {
 function dibujarMusica() {
   for (const b of document.querySelectorAll("[data-modo-musica]"))
     b.setAttribute("aria-pressed", String(b.dataset.modoMusica === (musicaModo || modoMusicaElegido)));
-  document.getElementById("boton-musica").textContent = musicaModo ? "■ Parar" : "▶︎ Empezar";
+  document.getElementById("boton-musica").textContent = musicaModo ? tr("■ Parar") : tr("▶︎ Empezar");
   document.getElementById("estado-musica").textContent = musicaModo
-    ? `En marcha (${(NOMBRE_MODO_MUSICA[musicaModo] || musicaModo).toLowerCase()}). Pon música en el Mac.` : "";
+    ? tr("En marcha ({modo}). Pon música en el Mac.", { modo: (NOMBRE_MODO_MUSICA[musicaModo] || musicaModo).toLowerCase() }) : "";
 }
 
 async function ponerMusica(modo) {
@@ -972,7 +987,7 @@ const hayCambiosColores = () => coloresGuardados !== null && !igual(colores, col
 
 function prepararPintor() {
   const pinceles = document.getElementById("pinceles");
-  const opciones = { ...MUESTRAS, "000000": "Apagada", "": "Quitar (como el resto)" };
+  const opciones = { ...MUESTRAS, "000000": tr("Apagada"), "": tr("Quitar (como el resto)") };
   for (const [hexa, nombre] of Object.entries(opciones).reverse()) {
     const b = document.createElement("button");
     b.type = "button";
@@ -1016,7 +1031,7 @@ function construirPintura() {
     if (!luz) continue;
     const d = document.createElement("div");
     d.className = "luz";
-    d.textContent = t.etiqueta;
+    d.textContent = tr(t.etiqueta);
     Object.assign(d.style, { left: t.x * escala + "px", top: t.y * escala + "px",
                              width: t.ancho * escala + "px", height: t.alto * escala + "px" });
     d.addEventListener("pointerdown", (e) => { e.preventDefault(); pintando = true; pintar(luz); });
@@ -1042,13 +1057,13 @@ function dibujarPintor() {
   if (pincel) document.getElementById("pincel-color").value = "#" + pincel.toLowerCase();
   document.getElementById("fondo").value = "#" + colores.fondo.toLowerCase();
   document.getElementById("pintura-brillo").value = colores.brillo;
-  document.getElementById("pintura-brillo-valor").textContent = `${colores.brillo} de 5`;
+  document.getElementById("pintura-brillo-valor").textContent = tr("{n} de 5", { n: colores.brillo });
   const cambios = hayCambiosColores() || (luces.efecto === "personal" && ultimoEfectoEnviado !== "personal");
   document.getElementById("deshacer-colores").disabled = !hayCambiosColores();
   document.getElementById("solo-cable-colores").hidden = modoConexion !== "2.4g";
   document.getElementById("enviar-colores").disabled = modoConexion === "2.4g";
-  document.getElementById("estado-colores").textContent = hayCambiosColores() ? "Hay cambios sin enviar." : "";
-  document.getElementById("enviar-colores").textContent = cambios ? "Enviar al teclado" : "Reenviar al teclado";
+  document.getElementById("estado-colores").textContent = hayCambiosColores() ? tr("Hay cambios sin enviar.") : "";
+  document.getElementById("enviar-colores").textContent = cambios ? tr("Enviar al teclado") : tr("Reenviar al teclado");
 }
 
 let ultimoEfectoEnviado = null;
@@ -1056,7 +1071,7 @@ async function enviarColores() {
   const boton = document.getElementById("enviar-colores");
   const estado = document.getElementById("estado-colores");
   boton.disabled = true;
-  estado.textContent = "Enviando…";
+  estado.textContent = tr("Enviando…");
   try {
     const r = await api("/api/colores", { colores });
     if (r.ok) {
@@ -1065,7 +1080,7 @@ async function enviarColores() {
       ultimoEfectoEnviado = "personal";
       ponerLuces(r.luces);
       dibujarPintor();
-      estado.textContent = "Guardado en el teclado ✓";
+      estado.textContent = tr("Guardado en el teclado ✓");
     } else {
       estado.textContent = "";
       avisar(r.mensaje, "error");
@@ -1077,7 +1092,7 @@ async function enviarColores() {
 // --- Pantalla ----------------------------------------------------------------------------------
 let pantalla = { modo: "reloj", nombre: null, fecha: null, hay_vista: false };
 let archivoElegido = null, enviandoImagen = false;
-const fechaCorta = (iso) => iso ? new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short",
+const fechaCorta = (iso) => iso ? new Date(iso).toLocaleString(IDIOMA === "es" ? "es-ES" : "en-GB", { day: "numeric", month: "short",
   hour: "2-digit", minute: "2-digit" }) : "";
 
 function prepararPantalla() {
@@ -1098,8 +1113,8 @@ function prepararPantalla() {
 }
 
 function elegirArchivo(archivo) {
-  if (!archivo.type.startsWith("image/")) { avisar("Eso no es una imagen.", "error"); return; }
-  if (archivo.size > 30 * 1024 * 1024) { avisar("La imagen es demasiado grande (máximo 30 MB).", "error"); return; }
+  if (!archivo.type.startsWith("image/")) { avisar(tr("Eso no es una imagen."), "error"); return; }
+  if (archivo.size > 30 * 1024 * 1024) { avisar(tr("La imagen es demasiado grande (máximo 30 MB)."), "error"); return; }
   archivoElegido = archivo;
   const img = document.getElementById("vista-img");
   if (img.src) URL.revokeObjectURL(img.src);
@@ -1127,9 +1142,9 @@ function dibujarPantalla() {
   reloj.textContent = new Date().toTimeString().slice(0, 5);
   const subida = pantalla.nombre ? `${pantalla.nombre} (${fechaCorta(pantalla.fecha)})` : "";
   document.getElementById("estado-pantalla").textContent =
-    (pantalla.modo === "imagen" ? `Ahora enseña ${subida || "una imagen o un GIF"}.`
-                               : "Ahora enseña el reloj." + (subida ? ` Última imagen subida: ${subida}.` : "")) +
-    (archivoElegido ? ` Elegido para enviar: ${archivoElegido.name}.` : "");
+    (pantalla.modo === "imagen" ? tr("Ahora enseña {que}.", { que: subida || tr("una imagen o un GIF") })
+                               : tr("Ahora enseña el reloj.") + (subida ? tr(" Última imagen subida: {imagen}.", { imagen: subida }) : "")) +
+    (archivoElegido ? tr(" Elegido para enviar: {archivo}.", { archivo: archivoElegido.name }) : "");
   document.getElementById("solo-cable-pantalla").hidden = modoConexion !== "2.4g";
   document.getElementById("enviar-imagen").disabled = !archivoElegido || enviandoImagen || modoConexion === "2.4g";
   document.getElementById("volver-reloj").disabled = enviandoImagen;
@@ -1142,22 +1157,22 @@ async function enviarImagen() {
   progreso.value = 0;
   progreso.hidden = false;
   dibujarPantalla();
-  avisar("Enviando a la pantalla…", "info");
+  avisar(tr("Enviando a la pantalla…"), "info");
   const sondeo = setInterval(vigilarConexion, 500);
   try {
     const r = await fetch("/api/imagen", { method: "POST", body: archivoElegido,
       headers: { "X-Clave": CLAVE, "Content-Type": archivoElegido.type || "application/octet-stream" } });
-    if (r.status === 403) throw new Error("Esta ventana es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎.");
+    if (r.status === 403) throw new Error(tr("Esta ventana es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎."));
     const datos = await r.json();
     if (datos.ok) {
       pantalla = datos.pantalla;
       archivoElegido = null;
-      avisar("La imagen ya está en la pantalla del teclado.", "bien");
+      avisar(tr("La imagen ya está en la pantalla del teclado."), "bien");
     } else {
       avisar(datos.mensaje, "error");
     }
   } catch (e) {
-    avisar(e.message.includes("Failed") || e.message.includes("Load") ? "La ventana ha perdido la conexión con la app." : e.message, "error");
+    avisar(e.message.includes("Failed") || e.message.includes("Load") ? tr("La ventana ha perdido la conexión con la app.") : e.message, "error");
   }
   clearInterval(sondeo);
   progreso.hidden = true;
@@ -1171,7 +1186,7 @@ async function volverAlReloj() {
     if (r.ok) {
       pantalla = r.pantalla;
       archivoElegido = null;
-      avisar("Reloj en hora y a la vista.", "bien");
+      avisar(tr("Reloj en hora y a la vista."), "bien");
     } else {
       avisar(r.mensaje, "error");
     }
@@ -1180,9 +1195,9 @@ async function volverAlReloj() {
 }
 
 // --- Ajustes ------------------------------------------------------------------------------------
-const NOMBRE_FN = { mantener: "Solo mientras se mantiene pulsada (de fábrica)", alternar: "Un toque la activa y otro la quita" };
-const NOMBRE_REPOSO = { "1": "1 minuto", "5": "5 minutos", "30": "30 minutos", nunca: "Nunca" };
-const NOMBRE_BLOQUEO = { win: "Tecla Win", altf4: "Alt + F4", alttab: "Alt + Tab" };
+const NOMBRE_FN = { mantener: tr("Solo mientras se mantiene pulsada (de fábrica)"), alternar: tr("Un toque la activa y otro la quita") };
+const NOMBRE_REPOSO = { "1": tr("1 minuto"), "5": tr("5 minutos"), "30": tr("30 minutos"), nunca: tr("Nunca") };
+const NOMBRE_BLOQUEO = { win: tr("Tecla Win"), altf4: "Alt + F4", alttab: "Alt + Tab" };
 let ajustesGuardados = null, ajustes = null;
 
 function prepararAjustes() {
@@ -1201,13 +1216,13 @@ function dibujarAjustes() {
   for (const valor of catalogo.reposo) {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = NOMBRE_REPOSO[valor] + (valor === "5" ? " (de fábrica)" : "");
+    b.textContent = NOMBRE_REPOSO[valor] + (valor === "5" ? tr(" (de fábrica)") : "");
     b.setAttribute("aria-pressed", String(valor === ajustes.reposo));
     b.addEventListener("click", () => { ajustes.reposo = valor; dibujarAjustes(); });
     reposo.append(b);
   }
   document.getElementById("respuesta").value = ajustes.respuesta;
-  document.getElementById("respuesta-valor").textContent = `${ajustes.respuesta} de 5`;
+  document.getElementById("respuesta-valor").textContent = tr("{n} de 5", { n: ajustes.respuesta });
   const bloqueos = document.getElementById("ajuste-bloqueos");
   bloqueos.replaceChildren();
   for (const [clave, nombre] of Object.entries(NOMBRE_BLOQUEO)) {
@@ -1223,18 +1238,18 @@ function dibujarAjustes() {
   const cambiados = !igual(ajustes, ajustesGuardados);
   const guardar = document.getElementById("guardar-ajustes");
   guardar.disabled = !cambiados;
-  guardar.textContent = cambiados ? "Guardar en el teclado" : "Guardado";
+  guardar.textContent = cambiados ? tr("Guardar en el teclado") : tr("Guardado");
 }
 
 async function guardarAjustes(cuerpo) {
   const estado = document.getElementById("estado-ajustes");
-  estado.textContent = "Enviando…";
+  estado.textContent = tr("Enviando…");
   try {
     const r = await api("/api/sistema", cuerpo);
     if (r.ok) {
       ajustesGuardados = r.ajustes;
       ajustes = copia(r.ajustes);
-      estado.textContent = "Guardado en el teclado ✓";
+      estado.textContent = tr("Guardado en el teclado ✓");
     } else {
       estado.textContent = "";
       avisar(r.mensaje, "error");
@@ -1253,8 +1268,8 @@ function aplicarEstado(r, primeraVez) {
   } else if (!igual(r.config, guardado)) {
     guardado = r.config;
     if (pendientes()) {
-      avisar("Las teclas se han cambiado desde fuera de esta ventana. Tus cambios sin enviar siguen aquí; " +
-             "«Deshacer cambios» enseña lo que tiene ahora el teclado.", "info");
+      avisar(tr("Las teclas se han cambiado desde fuera de esta ventana. Tus cambios sin enviar siguen aquí; ") +
+             tr("«Deshacer cambios» enseña lo que tiene ahora el teclado."), "info");
     } else {
       actual = copia(r.config);
     }
