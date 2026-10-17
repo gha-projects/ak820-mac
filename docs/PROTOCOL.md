@@ -58,6 +58,7 @@ writes `AA 55`; `55 AA` works too).
 
 | Effect | Code | Effect | Code |
 |---|---|---|---|
+| LED off | `00` | | |
 | single key on (press) | `02` | scrolling | `0A` |
 | single key off | `03` | rolling (wave) | `0B` |
 | glittering | `04` | rotating | `0C` |
@@ -69,7 +70,10 @@ writes `AA 55`; `55 AA` works too).
 | tilt | `12` | shuttle | `13` |
 | per-key custom colors | `80` | | |
 
-This project sends "static" as breath with speed 0, and "off" as brightness 0.
+This project sends "static" as breath with speed 0. "Off" is effect `00`, the official
+driver's "LED Off" (the last entry in its list, but `00` on the wire). It is not the same as
+Fn + X: after an `00`, Fn + X doesn't turn the lights back on, so the app remembers the
+previous lights to restore them (`luces encender`).
 
 ### Key positions
 

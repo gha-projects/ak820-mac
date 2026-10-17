@@ -507,6 +507,25 @@ while true; do echo "255 200 150 100 50 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 255"; slee
 """
 
 
+class ApagarYEncender(ConTecladoFalso):
+    def test_apagar_y_encender(self):
+        self.orden("luces", "explosion", "--velocidad", "1")
+        self.teclado.paquetes.clear()
+        self.assertEqual(self.orden("luces", "apagado")[0], 0)
+        self.assertEqual(self.teclado.datos()[:1], b"\x00")                  # el «LED Off» del oficial
+        self.orden("luces", "apagado")                                       # dos veces: no se olvida
+        self.teclado.paquetes.clear()
+        self.assertEqual(self.orden("luces", "encender")[0], 0)
+        self.assertEqual(self.teclado.datos()[:1], bytes([ak820.EFECTOS["explosion"]]))
+        luces = ak820.cargar_luces()
+        self.assertEqual((luces["efecto"], luces["velocidad"], "anterior" in luces), ("explosion", 1, False))
+
+    def test_encender_sin_saber_cuales(self):
+        codigo, salida = self.orden("luces", "encender")
+        self.assertEqual(codigo, 1)
+        self.assertIn("elige un efecto", salida)
+
+
 class Musica(ConTecladoFalso):
     def setUp(self):
         super().setUp()

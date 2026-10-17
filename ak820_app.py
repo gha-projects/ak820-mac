@@ -76,8 +76,8 @@ def guardar_preferencias(preferencias):
 # --- Argumentos para ak820.main (funciones puras, fáciles de probar) --------
 def args_luces(efecto, color=None, brillo=5):
     """Argumentos de 'luces' para un efecto del menú."""
-    if efecto == "apagado":
-        return ["luces", "apagado"]
+    if efecto in ("apagado", "encender"):
+        return ["luces", efecto]
     if efecto == "espectro":
         return ["luces", "espectro", "--arcoiris", "--brillo", str(brillo)]
     if efecto == "rodar":
@@ -211,6 +211,7 @@ class AppAK820(rumps.App):
         luces.add(rumps.MenuItem(tr("Espectro (arcoíris)"), callback=self.accion_luz("espectro")))
         luces.add(rumps.MenuItem(tr("Ola de colores"), callback=self.accion_luz("rodar")))
         luces.add(rumps.MenuItem(tr("Apagadas"), callback=self.accion_luz("apagado")))
+        luces.add(rumps.MenuItem(tr("Encendidas, como estaban"), callback=self.accion_luz("encender")))
         self.item_musica = rumps.MenuItem(tr("🎵 Modo música"), callback=self.cambiar_musica)
         luces.add(self.item_musica)
         luces.add(None)
@@ -284,7 +285,7 @@ class AppAK820(rumps.App):
             self.brillo = n
             for m, item in self.items_brillo.items():
                 item.state = int(m == n)
-            if self.ultima_luz and self.ultima_luz[0] != "apagado":
+            if self.ultima_luz and self.ultima_luz[0] not in ("apagado", "encender"):
                 efecto, color = self.ultima_luz
                 self.ejecutar("Luces", [args_luces(efecto, color, n)])
         return callback

@@ -521,9 +521,9 @@ class Manejador(BaseHTTPRequestHandler):
                                   colores=ak820.cargar_colores(), ajustes=ajustes_para_pagina(),
                                   pantalla=pantalla_para_pagina(), conexion=conexion(),
                                   copia_fabrica=ak820.fecha_copia_fabrica())
-        if ruta == "/api/apagar":
-            bien, mensaje = editor.orden(["luces", "apagado"])
-            return self.resultado(bien, mensaje)
+        if ruta in ("/api/apagar", "/api/encender"):
+            bien, mensaje = editor.orden(["luces", "apagado" if ruta == "/api/apagar" else "encender"])
+            return self.resultado(bien, mensaje, luces=ak820.cargar_luces())
         if ruta == "/api/reloj":
             bien, mensaje = editor.orden(["reloj"])
             return self.resultado(bien, mensaje, pantalla=pantalla_para_pagina())

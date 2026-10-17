@@ -55,7 +55,6 @@
  "Apagar las luces": "Turn the lights off",
  "Apagar las luces si no se usa": "Turn the lights off when idle",
  "Apagar o encender la pantalla": "Turn the screen off or on",
- "Apagar o encender las luces": "Turn the lights off or on",
  "Aplicado ✓": "Applied ✓",
  "Aplicando…": "Applying…",
  "Arcoíris": "Rainbow",
@@ -253,7 +252,6 @@
  "Lluvia": "Falling",
  "Los colores tecla a tecla solo se pueden cambiar por cable (por el receptor 2.4G, no).": "Per-key colors can only be changed by cable (not through the 2.4G receiver).",
  "Luces": "Lights",
- "Luces apagadas. Elige un efecto para encenderlas.": "Lights off. Choose an effect to turn them on.",
  "Luces de juego 1 (FPS: W A S D y flechas)": "Game lights 1 (FPS: W A S D and arrows)",
  "Luces de juego 2 (LOL)": "Game lights 2 (LOL)",
  "Luces de juego 3 (oficina: letras y flechas)": "Game lights 3 (office: letters and arrows)",
@@ -429,7 +427,6 @@
  "de fábrica": "factory",
  "de fábrica, {funcion}": "factory, {funcion}",
  "dejar el teclado de fábrica (teclas, macros, luces, colores y ajustes)": "reset the keyboard to factory (keys, macros, lights, colors and settings)",
- "efecto de luz": "lighting effect",
  "foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores": "photo or drawing (JPG, PNG...), or 'test' for a test pattern",
  "hora concreta, formato 'AAAA-MM-DD HH:MM' (por defecto, ahora)": "a specific time, format 'YYYY-MM-DD HH:MM' (default: now)",
  "igual que la orden 'reposo'": "same as the 'sleep' command",
@@ -506,5 +503,13 @@
  "Esto es lo que ve tu Mac. Si tu teclado está en la lista, es una versión que este programa no conoce: cuéntalo en una incidencia en GitHub con esta lista.": "This is what your Mac sees. If your keyboard is on the list, it's a version this program doesn't know: tell us in a GitHub issue, with this list.",
  "de fabricante": "vendor",
  "También en inglés: find, clock, lights, sleep, settings, factory, resend, battery, music, colors, image y keys, con sus opciones (--brightness, --speed, --yes…) y valores (breath, wave, left, next, mute, text:…).": "Every command, option and value has an English name: find, clock, lights, sleep, settings, factory, resend, battery, music, colors, image and keys, with --brightness, --speed, --yes… and breath, wave, left, next, mute, text:… (the Spanish names shown above work too).",
- "También en inglés:": "Also in English:"
+ "También en inglés:": "Also in English:",
+ "Apagar o encender las luces. Si las apagaste desde la app, enciéndelas desde la app.": "Turn the lights off or on. If you turned them off from the app, turn them on from the app.",
+ "Encender las luces": "Turn the lights on",
+ "Encendidas ✓": "On ✓",
+ "Encendidas, como estaban": "On, as they were",
+ "Encendiendo…": "Turning on…",
+ "Luces apagadas ✓": "Lights off ✓",
+ "No sé qué luces tenías antes de apagarlas: elige un efecto.": "I don't know which lights you had before turning them off: choose an effect.",
+ "efecto de luz; 'encender' vuelve a las de antes de 'apagado'": "lighting effect; 'on' brings back the lights you had before 'off'"
 }

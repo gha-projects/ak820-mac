@@ -246,10 +246,11 @@ for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "end":
     CODIGO_TECLA[alias] = CODIGO_TECLA[nombre]
 
 # --- Efectos de luz (byte 0 del paquete de luces) ---------------------------
-# El firmware no tiene "fijo" ni "apagado" de verdad: "fijo" es "respirar" a
-# velocidad 0 y "apagado" es "una tecla" con brillo 0 (igual que la comunidad).
+# "fijo" es "respirar" a velocidad 0 (el firmware no tiene un fijo de verdad). "apagado" es el
+# 0x00, el «LED Off» del programa oficial (probado: apaga, y Fn + X no las vuelve a encender;
+# por eso al apagar se recuerdan las luces de antes, para 'luces encender').
 EFECTOS = {
-    "fijo": 0x07, "apagado": 0x02,
+    "fijo": 0x07, "apagado": 0x00,
     "una-tecla": 0x02, "una-tecla-off": 0x03, "brillos": 0x04, "lluvia": 0x05,
     "colores": 0x06, "respirar": 0x07, "espectro": 0x08, "ondas": 0x09,
     "desplazar": 0x0A, "rodar": 0x0B, "girar": 0x0C, "explosion": 0x0D,
@@ -998,9 +999,7 @@ def cmd_reenviar(_args):
     if luces and luces["efecto"] == "personal":
         bien = enviar_colores(cargar_colores()) and bien
     elif luces:
-        argumentos = ["luces", luces["efecto"], "--color", luces["color"], "--brillo", str(luces["brillo"]),
-                      "--velocidad", str(luces["velocidad"]), "--direccion", luces["direccion"]]
-        bien = main(argumentos + (["--arcoiris"] if luces.get("arcoiris") else [])) == 0 and bien
+        bien = main(args_de_luces(luces)) == 0 and bien
     bien = enviar_ajustes(cargar_ajustes()) == 0 and bien
     if not bien:
         print(tr("Algo no ha llegado al teclado: prueba otra vez."))
@@ -1026,14 +1025,32 @@ def cmd_bateria(_args):
     return 1
 
 
+def args_de_luces(luces):
+    """Los argumentos de 'luces' para unas luces guardadas."""
+    return (["luces", luces["efecto"], "--color", luces["color"], "--brillo", str(luces["brillo"]),
+             "--velocidad", str(luces["velocidad"]), "--direccion", luces["direccion"]]
+            + (["--arcoiris"] if luces.get("arcoiris") else []))
+
+
+def encender_luces():
+    """Vuelve a las luces que había antes de apagarlas desde este Mac."""
+    luces = cargar_luces()
+    anterior = luces.get("anterior") if luces and luces["efecto"] == "apagado" else None
+    if not anterior or anterior.get("efecto") not in EFECTOS:
+        print(tr("No sé qué luces tenías antes de apagarlas: elige un efecto."))
+        return 1
+    return main(args_de_luces(anterior))       # el efecto 'personal' enseña los colores que ya tiene
+
+
 def cmd_luces(args):
+    if args.efecto == "encender":
+        return encender_luces()
     color = args.color.lstrip("#")
     r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
     brillo, velocidad = args.brillo, args.velocidad
     if args.efecto == "fijo":
         velocidad = 0
-    elif args.efecto == "apagado":
-        brillo, velocidad = 0, 0
+    previas = cargar_luces()
 
     datos = paquete_luces(EFECTOS[args.efecto], r, g, b, args.arcoiris,
                           brillo, velocidad, DIRECCIONES[args.direccion])
@@ -1055,8 +1072,13 @@ def cmd_luces(args):
         dispositivo.close()
     os.makedirs(os.path.dirname(LUCES_GUARDADAS), exist_ok=True)
     with open(LUCES_GUARDADAS, "w") as f:
-        json.dump({"efecto": args.efecto, "color": color.upper(), "brillo": args.brillo,
-                   "velocidad": args.velocidad, "direccion": args.direccion, "arcoiris": args.arcoiris}, f)
+        guardar = {"efecto": args.efecto, "color": color.upper(), "brillo": args.brillo,
+                   "velocidad": args.velocidad, "direccion": args.direccion, "arcoiris": args.arcoiris}
+        if args.efecto == "apagado" and previas:        # para poder encenderlas como estaban
+            anterior = previas.get("anterior") if previas["efecto"] == "apagado" else previas
+            if anterior:
+                guardar["anterior"] = {k: v for k, v in anterior.items() if k != "anterior"}
+        json.dump(guardar, f)
     print(tr("Luces: {efecto}, color #{color}, brillo {brillo}, velocidad {velocidad}. Mira el teclado.",
              efecto=args.efecto, color=color.upper(), brillo=brillo, velocidad=velocidad))
     return 0
@@ -1535,6 +1557,7 @@ EN_VALORES = {
     "spectrum": "espectro", "outward": "ondas", "scrolling": "desplazar", "wave": "rodar",
     "rotating": "girar", "explode": "explosion", "launch": "lanzar", "ripples": "ondulas",
     "flowing": "fluir", "pulsating": "latido", "tilt": "inclinar", "shuttle": "lanzadera", "custom": "personal",
+    "on": "encender",
     # direcciones y flechas
     "left": "izquierda", "down": "abajo", "up": "arriba", "right": "derecha",
     # reposo, modo de Fn y modos de las macros
@@ -1593,7 +1616,8 @@ def main(argv=None):
     r = sub.add_parser("reloj", help=tr("poner en hora la pantalla del teclado"))
     r.add_argument("--hora", help=tr("hora concreta, formato 'AAAA-MM-DD HH:MM' (por defecto, ahora)"))
     l = sub.add_parser("luces", help=tr("cambiar las luces RGB"))
-    l.add_argument("efecto", choices=EFECTOS, help=tr("efecto de luz"))
+    l.add_argument("efecto", choices=[*EFECTOS, "encender"],
+                   help=tr("efecto de luz; 'encender' vuelve a las de antes de 'apagado'"))
     l.add_argument("--color", default="FFFFFF", help=tr("color en hexadecimal, p. ej. FF0000 (rojo)"))
     l.add_argument("--brillo", type=int, default=5, help=tr("0 a 5 (por defecto 5)"))
     l.add_argument("--velocidad", type=int, default=3, help=tr("0 a 5 (por defecto 3)"))

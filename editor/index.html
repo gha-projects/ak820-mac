@@ -399,7 +399,7 @@ const FABRICA_FN = {
   derecha: [tr("Color"), tr("Cambiar el color de las luces")],
   "-": [tr("Vel−"), tr("Efecto más lento")],
   "=": [tr("Vel+"), tr("Efecto más rápido")],
-  x: [tr("Luces"), tr("Apagar o encender las luces")],
+  x: [tr("Luces"), tr("Apagar o encender las luces. Si las apagaste desde la app, enciéndelas desde la app.")],
   espacio: [tr("Reset (3 s)"), tr("Manteniéndola 3-5 s: todo el teclado de fábrica")],
   "1": ["FPS", tr("Luces de juego 1 (FPS: W A S D y flechas)")],
   "2": ["LOL", tr("Luces de juego 2 (LOL)")],
@@ -969,6 +969,7 @@ function dibujarLuces() {
   velocidad.disabled = luces.efecto === "fijo";
   document.getElementById("velocidad-valor").textContent = luces.efecto === "fijo" ? tr("(el efecto Fijo no se mueve)") : tr("{n} de 5", { n: luces.velocidad });
   document.getElementById("direccion").value = luces.direccion;
+  document.getElementById("apagar-luces").textContent = lucesApagadas ? tr("Encender las luces") : tr("Apagar las luces");
   const personal = luces.efecto === "personal" && !lucesApagadas && !verMusica;
   document.getElementById("controles-efecto").hidden = personal || verMusica;
   document.getElementById("pintor").hidden = !personal;
@@ -1006,19 +1007,29 @@ async function enviarLuces() {
   if (lucesOtraVez) { lucesOtraVez = false; enviarLuces(); }
 }
 
+// El mismo botón apaga y enciende: al encender vuelven las luces de antes (las recuerda ak820.py).
 async function apagarLuces() {
   const estado = document.getElementById("estado-luces");
-  estado.textContent = tr("Apagando…");
+  const encender = lucesApagadas;
+  estado.textContent = encender ? tr("Encendiendo…") : tr("Apagando…");
   try {
-    const r = await api("/api/apagar", {});
-    if (r.ok) { lucesApagadas = true; dibujarLuces(); estado.textContent = tr("Luces apagadas. Elige un efecto para encenderlas."); }
-    else { estado.textContent = ""; avisar(r.mensaje, "error"); }
+    const r = await api(encender ? "/api/encender" : "/api/apagar", {});
+    if (r.ok) {
+      ponerLuces(r.luces);
+      if (!encender) lucesApagadas = true;
+      dibujarLuces();
+      estado.textContent = encender ? tr("Encendidas ✓") : tr("Luces apagadas ✓");
+    } else { estado.textContent = ""; avisar(r.mensaje, "error"); }
   } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
 }
 
 function ponerLuces(guardadas) {
   if (!guardadas) return;
-  if (guardadas.efecto === "apagado") { lucesApagadas = true; return; }
+  if (guardadas.efecto === "apagado") {
+    lucesApagadas = true;
+    if (guardadas.anterior) luces = { ...luces, ...guardadas.anterior };   // lo que vuelve al encender
+    return;
+  }
   lucesApagadas = false;
   luces = { ...luces, ...guardadas };
 }
