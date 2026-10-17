@@ -118,5 +118,5 @@ Part of the protocol was first decoded by the community, in MIT-licensed project
 [Aiacos/ajazz-control-center](https://github.com/Aiacos/ajazz-control-center) and
 [gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac).
 
-Unofficial project, not affiliated with Ajazz or Epomaker. Use at your own risk: it
+MIT license (see [LICENSE](LICENSE)). Unofficial project, not affiliated with Ajazz or Epomaker. Use at your own risk: it
 writes to the keyboard's memory (everything can be reset to factory from the app).

@@ -130,5 +130,5 @@ Parte del protocolo lo descifró antes la comunidad, en proyectos con licencia M
 [Aiacos/ajazz-control-center](https://github.com/Aiacos/ajazz-control-center) y
 [gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac).
 
-Proyecto no oficial, sin relación con Ajazz ni Epomaker. Úsalo bajo tu responsabilidad:
+Licencia MIT (ver [LICENSE](LICENSE)). Proyecto no oficial, sin relación con Ajazz ni Epomaker. Úsalo bajo tu responsabilidad:
 escribe en la memoria del teclado (todo se puede dejar de fábrica desde la app).
