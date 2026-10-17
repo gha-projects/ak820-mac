@@ -2,3 +2,6 @@
 __pycache__/
 *.zip
 .claude/
+build/
+dist/
+build.log

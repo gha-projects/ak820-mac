@@ -30,7 +30,10 @@ import ak820
 import ak820_editor
 
 CARPETA = os.path.dirname(os.path.abspath(__file__))
-GUIA_TECLAS = os.path.join(CARPETA, "docs", "teclas.md")
+# Dentro de AK820.app (py2app) la guía va en Contents/Resources (RESOURCEPATH).
+GUIA_TECLAS = (os.path.join(os.environ["RESOURCEPATH"], "teclas.md") if "RESOURCEPATH" in os.environ
+               else os.path.join(CARPETA, "docs", "teclas.md"))
+REGISTRO = os.path.expanduser("~/Library/Logs/ak820-app.log")
 
 TITULO = "⌨︎"
 TITULO_OCUPADO = "⌨︎…"
@@ -120,6 +123,15 @@ def ventana(titulo, mensaje):
     from AppKit import NSApp
     NSApp.activateIgnoringOtherApps_(True)
     rumps.alert(title=f"AK820 · {titulo}", message=mensaje, ok="Vale")
+
+
+def notificar(titulo, mensaje):
+    """Notificación de macOS. Solo dentro de AK820.app: un Python suelto no tiene permiso."""
+    if getattr(sys, "frozen", False):
+        try:
+            rumps.notification("AK820", titulo, mensaje)
+        except Exception:
+            pass
 
 
 class Salida(io.StringIO):
@@ -340,6 +352,8 @@ class AppAK820(rumps.App):
             if bien:
                 self.hecho_hasta = time.monotonic() + SEGUNDOS_HECHO
                 self.title = TITULO_HECHO
+                if titulo == "Pantalla":            # tarda: avisa por si estás en otra cosa
+                    notificar("Pantalla", "La imagen ya está en la pantalla del teclado.")
             if avisar == "siempre" or (avisar == "error" and not bien):
                 ventana(titulo, mensaje)
 
@@ -375,6 +389,11 @@ def elegir_imagen():
 
 
 def main():
+    if getattr(sys, "frozen", False):
+        # En AK820.app nadie recoge la salida: se manda al registro, como hace el .command.
+        registro = open(REGISTRO, "a", buffering=1)
+        os.dup2(registro.fileno(), 1)
+        os.dup2(registro.fileno(), 2)
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
     # Sin icono en el Dock: solo en la barra de menús.
     NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)

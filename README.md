@@ -60,15 +60,22 @@ Para usarlo sin la terminal: un icono ⌨︎ arriba a la derecha con el reloj, l
 (efecto, color y brillo), la imagen o GIF de la pantalla, el reposo, los ajustes del
 sistema y el **editor de teclas**.
 
-1. La primera vez, instala lo que necesita (con el entorno de Python ya preparado):
-   ```
-   source .venv/bin/activate
-   pip install -r requirements-app.txt
-   ```
-2. Ábrela con **doble clic en `Abrir AK820.command`** desde Finder, o en la terminal:
-   ```
-   python3 ak820_app.py
-   ```
+**Instalarla como una app más** (con su icono, en Aplicaciones):
+```
+./crear-app.sh
+```
+Crea `AK820.app` con [py2app](https://py2app.readthedocs.io), la copia a Aplicaciones y la
+abre. Después se abre como cualquier app (Launchpad, Spotlight: "AK820"). Para que se
+abra sola al encender el Mac: Ajustes del Sistema → General → Ítems de inicio → añadir
+AK820. Si cambias el código, vuelve a ejecutar `./crear-app.sh`.
+
+**Sin instalarla** (para probar cambios): doble clic en `Abrir AK820.command`, o
+`python3 ak820_app.py` con el entorno activado (la primera vez:
+`pip install -r requirements-app.txt`).
+
+Al conectar el teclado por cable, la app **pone la hora sola** (se puede quitar en
+Reloj → Ponerla sola al conectar el teclado). Como poner la hora vuelve a enseñar el
+reloj en la pantalla, no lo hace si lo último que mandaste a la pantalla fue una imagen.
 
 Mientras trabaja, el icono pasa a **⌨︎…** (o al % enviado, con las imágenes). Cuando
 acaba bien sale **⌨︎ ✓** unos segundos; si algo falla, una ventana explica qué pasa. Lo

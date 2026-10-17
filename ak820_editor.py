@@ -21,7 +21,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import ak820
 
-CARPETA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "editor")
+# Dentro de AK820.app (py2app) los archivos van en Contents/Resources (RESOURCEPATH).
+CARPETA = os.path.join(os.environ.get("RESOURCEPATH") or os.path.dirname(os.path.abspath(__file__)), "editor")
 PUERTO = 8820
 MAX_CUERPO = 64 * 1024
 
