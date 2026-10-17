@@ -1,0 +1,6 @@
+-r requirements.txt
+# Para la app de la barra de menús (ak820_app.py).
+# PyObjC 10.3.1 es la última con paquetes ya compilados para el Python 3.9 de macOS.
+pyobjc-core==10.3.1
+pyobjc-framework-Cocoa==10.3.1
+rumps

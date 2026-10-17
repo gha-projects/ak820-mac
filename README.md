@@ -54,6 +54,26 @@ solo existe para Windows.
 Si `python3` no existe, macOS te ofrecerá instalar las "herramientas de línea de comandos"; acepta.
 Si `pip install` falla, instala [Homebrew](https://brew.sh) y ejecuta `brew install hidapi`.
 
+## App de la barra de menús
+
+Para usarlo sin la terminal: un icono ⌨︎ arriba a la derecha con el reloj, las luces
+(efecto, color y brillo), la imagen o GIF de la pantalla, el reposo y restaurar las
+teclas de fábrica.
+
+1. La primera vez, instala lo que necesita (con el entorno de Python ya preparado):
+   ```
+   source .venv/bin/activate
+   pip install -r requirements-app.txt
+   ```
+2. Ábrela con **doble clic en `Abrir AK820.command`** desde Finder, o en la terminal:
+   ```
+   python3 ak820_app.py
+   ```
+
+Cada opción avisa con una notificación al terminar. Como siempre, el teclado tiene que
+estar **por cable**. Para el remapeo de teclas y las macros sigue haciendo falta la
+terminal (`python3 ak820.py teclas ...`).
+
 ## Teclas de Mac (la 🌐)
 
 El AK820 no tiene la tecla 🌐 (Fn/Globo de Mac) y no puede enviarla. Lo resolvemos en macOS:
