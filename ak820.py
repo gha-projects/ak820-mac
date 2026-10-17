@@ -630,7 +630,7 @@ def cmd_imagen(args):
     return 0
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Configurador del Ajazz AK820 Pro para Mac")
     sub = parser.add_subparsers(dest="comando", required=True)
     sub.add_parser("buscar", help="comprobar que el Mac ve el teclado (no cambia nada)")
@@ -653,7 +653,7 @@ def main():
     t.add_argument("--fn", action="store_true", help="cambiar la capa con Fn (Fn + tecla) en vez de la normal")
     t.add_argument("--veces", type=int, default=1, choices=range(1, 256), metavar="N",
                    help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo}
     return ordenes[args.comando](args)
