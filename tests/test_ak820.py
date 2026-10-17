@@ -19,7 +19,7 @@ from unittest import mock
 import ak820
 
 # Órdenes que van seguidas de paquetes de datos sin respuesta (cuántos: byte 8).
-CON_DATOS = {0x11, 0x27, 0x15, 0x17, 0x13, 0x28}
+CON_DATOS = {0x11, 0x27, 0x15, 0x17, 0x13, 0x28, 0x23}
 
 
 class TecladoFalso:
@@ -108,7 +108,8 @@ class ConTecladoFalso(unittest.TestCase):
                        mock.patch.object(ak820, "TECLAS_GUARDADAS", os.path.join(carpeta.name, "teclas.json")),
                        mock.patch.object(ak820, "AJUSTES_GUARDADOS", os.path.join(carpeta.name, "sistema.json")),
                        mock.patch.object(ak820, "PANTALLA_GUARDADA", os.path.join(carpeta.name, "pantalla.json")),
-                       mock.patch.object(ak820, "LUCES_GUARDADAS", os.path.join(carpeta.name, "luces.json"))):
+                       mock.patch.object(ak820, "LUCES_GUARDADAS", os.path.join(carpeta.name, "luces.json")),
+                       mock.patch.object(ak820, "COLORES_GUARDADOS", os.path.join(carpeta.name, "colores.json"))):
             parche.start()
             self.addCleanup(parche.stop)
 
@@ -254,6 +255,37 @@ class EnvioConFallos(ConTecladoFalso):
         self.assertEqual(codigo, 0)
         self.assertIn("repitiendo", salida)
         self.assertEqual(self.teclado.ordenes().count(0x11), 2)
+
+
+class Colores(ConTecladoFalso):
+    def test_tabla(self):
+        tabla = ak820.tabla_colores({"fondo": "000010", "teclas": {"avpag": "FF0000", "fn": "00FF00"}, "brillo": 5})
+        self.assertEqual(len(tabla), 576)
+        self.assertEqual(tabla[121 * 4:121 * 4 + 4].hex(" "), "79 ff 00 00")   # AvPág
+        self.assertEqual(tabla[96 * 4:96 * 4 + 4].hex(" "), "60 00 ff 00")     # Fn
+        self.assertEqual(tabla[1 * 4:1 * 4 + 4].hex(" "), "01 00 00 10")       # Esc, con el fondo
+        self.assertEqual(tabla[0:4], bytes(4))                                 # hueco sin tecla
+        self.assertEqual(tabla[-2:], b"\xaa\x55")
+
+    def test_orden_colores(self):
+        codigo, _ = self.orden("colores", "avpag=ff0000", "pgup=#00FF00", "--brillo", "3")
+        self.assertEqual(codigo, 0)
+        # efecto "personal" (18 13 datos 02 F0) y luego la tabla (18 23 ×9 02 F0)
+        self.assertEqual(self.teclado.ordenes(), [0x18, 0x13, 0x02, 0xF0, 0x18, 0x23, 0x02, 0xF0])
+        datos = self.teclado.datos()
+        self.assertEqual((datos[0], datos[9]), (0x80, 3))
+        self.assertEqual(ak820.cargar_colores()["teclas"], {"avpag": "FF0000", "repag": "00FF00"})
+        self.assertEqual(ak820.cargar_luces()["efecto"], "personal")
+        self.orden("colores", "avpag=defecto", "--fondo", "0000FF")
+        self.assertEqual(ak820.cargar_colores(), {"fondo": "0000FF", "teclas": {"repag": "00FF00"}, "brillo": 3})
+        self.orden("colores", "restaurar")
+        self.assertEqual(ak820.cargar_colores(), {"fondo": "000000", "teclas": {}, "brillo": 3})
+
+    def test_errores(self):
+        for argumentos in (["avpag=rojo"], ["zz=FF0000"], ["--fondo", "123"]):
+            with self.subTest(argumentos=argumentos):
+                self.assertEqual(self.orden("colores", *argumentos)[0], 1)
+        self.assertEqual(self.teclado.paquetes, [])
 
 
 class OtrasOrdenes(ConTecladoFalso):
@@ -406,6 +438,16 @@ class Editor(ConTecladoFalso):
         self.assertEqual((respuesta["ok"], respuesta["pantalla"]), (True, "reloj"))
         conexion = json.loads(self.pedir("/api/conexion")[1])
         self.assertEqual((conexion["conectado"], conexion["ocupado"]), (True, False))
+
+    def test_colores(self):
+        colores = {"fondo": "#000010", "teclas": {"avpag": "ff0000", "fn": "00FF00"}, "brillo": 4}
+        respuesta = json.loads(self.pedir("/api/colores", {"colores": colores})[1])
+        self.assertTrue(respuesta["ok"], respuesta)
+        self.assertEqual(respuesta["colores"], {"fondo": "000010", "teclas": {"avpag": "FF0000", "fn": "00FF00"}, "brillo": 4})
+        self.assertEqual(respuesta["luces"]["efecto"], "personal")
+        for malo in ({"teclas": {"zz": "FF0000"}}, {"teclas": {"avpag": "rojo"}}, {"fondo": "1"}, {"brillo": 0}):
+            with self.subTest(malo=malo):
+                self.assertFalse(json.loads(self.pedir("/api/colores", {"colores": malo})[1])["ok"])
 
     def test_ocupado(self):
         self.editor.candado.acquire()

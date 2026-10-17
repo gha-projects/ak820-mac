@@ -68,6 +68,7 @@ def catalogo():
         "modos": list(ak820.MODO_MACRO),
         "no_cambiables_fn": sorted(ak820.NOMBRE_TECLA[i] for i in ak820.NO_CAMBIABLES_FN),
         "efectos": [e for e in ak820.EFECTOS if e != "apagado"],
+        "teclas_con_luz": list(ak820.POSICION_LUZ),
         "direcciones": list(ak820.DIRECCIONES),
         "reposo": list(ak820.REPOSO),
         "modos_fn": list(ak820.MODO_FN),
@@ -146,6 +147,21 @@ def args_luces(datos):
     if datos.get("arcoiris"):
         argumentos.append("--arcoiris")
     return argumentos
+
+
+def limpiar_colores(datos):
+    """Los colores tecla a tecla en el formato de ak820.cargar_colores(). Lanza ValueError."""
+    if not isinstance(datos, dict) or not isinstance(datos.get("teclas", {}), dict):
+        raise ValueError("Colores no válidos.")
+    fondo = ak820.color_valido(datos.get("fondo", "000000"))
+    if fondo is None:
+        raise ValueError("Color de fondo no válido.")
+    teclas = {}
+    for tecla, color in datos.get("teclas", {}).items():
+        if tecla not in ak820.POSICION_LUZ or ak820.color_valido(color) is None:
+            raise ValueError(f"Color no válido en '{tecla}'.")
+        teclas[tecla] = ak820.color_valido(color)
+    return {"fondo": fondo, "teclas": teclas, "brillo": numero(datos.get("brillo", 5), 1, 5, "El brillo")}
 
 
 def args_sistema(datos):
@@ -249,6 +265,20 @@ class Editor:
             return False, SIN_TECLADO
         return False, " ".join(l for l in lineas if "repitiendo" not in l) or "Algo ha fallado."
 
+    def colores(self, config):
+        """Manda los colores tecla a tecla. Devuelve (bien, mensaje)."""
+        try:
+            bien, lineas = self._con_teclado(lambda: ak820.enviar_colores(config))
+        except Ocupado:
+            return False, OCUPADO
+        except Exception as e:
+            return False, f"Error: {e}"
+        if bien:
+            return True, "Colores guardados en el teclado."
+        if any("No encuentro el teclado" in l for l in lineas):
+            return False, SIN_TECLADO
+        return False, " ".join(l for l in lineas if "repitiendo" not in l) or "Algo ha fallado."
+
     def imagen(self, datos):
         """Pone en la pantalla una imagen o GIF (los bytes del archivo). Devuelve (bien, mensaje)."""
         from PIL import Image
@@ -309,7 +339,7 @@ class Manejador(BaseHTTPRequestHandler):
                 distribucion = json.load(f)
             return self.responder(200, {
                 "distribucion": distribucion, "config": ak820.cargar_teclas(), "catalogo": catalogo(),
-                "luces": ak820.cargar_luces(), "pantalla": ak820.modo_pantalla(),
+                "luces": ak820.cargar_luces(), "colores": ak820.cargar_colores(), "pantalla": ak820.modo_pantalla(),
                 "ajustes": ajustes_para_pagina(), "conectado": conectado()})
         if ruta == "/api/conexion":
             return self.responder(200, {"conectado": conectado(), "ocupado": editor.candado.locked(),
@@ -361,6 +391,13 @@ class Manejador(BaseHTTPRequestHandler):
                 return self.resultado(False, str(e))
             bien, mensaje = editor.orden(argumentos)
             return self.resultado(bien, mensaje, luces=ak820.cargar_luces())
+        if ruta == "/api/colores":
+            try:
+                config = limpiar_colores(datos.get("colores"))
+            except ValueError as e:
+                return self.resultado(False, str(e))
+            bien, mensaje = editor.colores(config)
+            return self.resultado(bien, mensaje, colores=ak820.cargar_colores(), luces=ak820.cargar_luces())
         if ruta == "/api/apagar":
             bien, mensaje = editor.orden(["luces", "apagado"])
             return self.resultado(bien, mensaje)

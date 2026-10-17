@@ -106,6 +106,15 @@
   .acciones { flex: 1 1 320px; }
   .acciones h2 { margin-top: 0; }
   progress { width: 100%; height: 10px; accent-color: var(--acento); margin-top: 14px; }
+  #pintura { position: relative; margin: 6px auto 0; touch-action: none; user-select: none; }
+  .luz { position: absolute; border-radius: 7px; border: 1px solid rgba(0,0,0,.25); cursor: crosshair;
+         font-size: 11px; font-weight: 600; padding: 3px 5px; overflow: hidden; white-space: nowrap;
+         box-shadow: inset 0 -3px 0 rgba(0,0,0,.18); }
+  .luz.propia { box-shadow: inset 0 -3px 0 rgba(0,0,0,.18), 0 0 0 2px rgba(255,255,255,.6); }
+  .luz.apagada { background: repeating-linear-gradient(135deg, #1b1c22, #1b1c22 6px, #23242b 6px, #23242b 12px) !important; }
+  .marco-pintura { background: #0e0f13; border-radius: 14px; padding: 14px; margin-top: 10px; overflow: hidden; }
+  .muestra.goma { background: repeating-linear-gradient(135deg, #fff, #fff 4px, #d0d0d6 4px, #d0d0d6 8px); }
+  .muestra.negra { background: #000 !important; }
   #ajuste-fn .opciones { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); max-width: 760px; }
   [data-pestana="ajustes"] .deslizadores { max-width: 440px; }
 </style>
@@ -151,6 +160,7 @@
     <section class="tarjeta">
       <h2>Efecto</h2>
       <div class="opciones" id="efectos"></div>
+      <div id="controles-efecto">
       <h2>Color</h2>
       <div class="muestras" id="muestras">
         <input type="color" id="color" title="Otro color">
@@ -160,6 +170,29 @@
         <label>Brillo <input type="range" id="brillo" min="1" max="5"><span class="valor" id="brillo-valor"></span></label>
         <label>Velocidad <input type="range" id="velocidad" min="0" max="5"><span class="valor" id="velocidad-valor"></span></label>
         <label>Dirección <select id="direccion"></select></label>
+      </div>
+      </div>
+      <div id="pintor" hidden>
+        <h2>Pinta las teclas</h2>
+        <p class="nota">Elige un color y pincha las teclas (o arrastra por encima). Las rayadas están apagadas.</p>
+        <div class="muestras" id="pinceles">
+          <input type="color" id="pincel-color" title="Otro color">
+        </div>
+        <div class="marco-pintura"><div id="pintura"></div></div>
+        <div class="fila">
+          <span>El resto de teclas:</span>
+          <input type="color" id="fondo" title="Color del resto de teclas">
+          <button type="button" class="boton" id="fondo-apagado">Apagadas</button>
+          <button type="button" class="boton" id="pintar-todas">Todas del color elegido</button>
+        </div>
+        <div class="deslizadores">
+          <label>Brillo <input type="range" id="pintura-brillo" min="1" max="5"><span class="valor" id="pintura-brillo-valor"></span></label>
+        </div>
+        <div class="botones">
+          <button type="button" class="boton principal" id="enviar-colores">Enviar al teclado</button>
+          <button type="button" class="boton" id="deshacer-colores">Deshacer cambios</button>
+        </div>
+        <p class="estado-linea" id="estado-colores"></p>
       </div>
       <div class="botones"><button type="button" class="boton" id="apagar-luces">Apagar las luces</button></div>
       <p class="estado-linea" id="estado-luces"></p>
@@ -692,8 +725,11 @@ for (const b of document.querySelectorAll("[data-capa]")) {
   });
 }
 window.addEventListener("resize", () => { if (catalogo) dibujarTeclado(); });
+function cambiosSinEnviar() {
+  return pendientes() + (hayCambiosColores() ? 1 : 0) + (ajustes && !igual(ajustes, ajustesGuardados) ? 1 : 0);
+}
 window.addEventListener("beforeunload", (e) => {
-  if (catalogo && pendientes()) { e.preventDefault(); e.returnValue = ""; }
+  if (catalogo && cambiosSinEnviar()) { e.preventDefault(); e.returnValue = ""; }
 });
 
 // --- Pestañas ------------------------------------------------------------------------------
@@ -704,6 +740,7 @@ function irA(nombre) {
   avisar("", "");
   try { localStorage.setItem("ak820-pestana", nombre); } catch (e) { /* sin almacenamiento: da igual */ }
   if (nombre === "teclas" && catalogo) dibujarTeclado();
+  if (nombre === "luces" && catalogo) { teclasLuz = {}; dibujarLuces(); }
 }
 for (const b of document.querySelectorAll("[data-ir]")) b.addEventListener("click", () => irA(b.dataset.ir));
 
@@ -726,8 +763,9 @@ setInterval(vigilarConexion, 3000);
 const NOMBRE_EFECTO = { fijo: "Fijo", respirar: "Respirar", espectro: "Espectro", rodar: "Ola", ondas: "Ondas",
   colores: "Colores", desplazar: "Desplazar", girar: "Girar", fluir: "Fluir", latido: "Latido", lluvia: "Lluvia",
   brillos: "Destellos", explosion: "Explosión", lanzar: "Lanzar", ondulas: "Ondulaciones", inclinar: "Inclinar",
-  lanzadera: "Lanzadera", "una-tecla": "Al pulsar se enciende", "una-tecla-off": "Al pulsar se apaga" };
-const PRIMEROS_EFECTOS = ["fijo", "respirar", "espectro", "rodar"];
+  lanzadera: "Lanzadera", "una-tecla": "Al pulsar se enciende", "una-tecla-off": "Al pulsar se apaga",
+  personal: "🎨 Tecla a tecla" };
+const PRIMEROS_EFECTOS = ["fijo", "respirar", "espectro", "rodar", "personal"];
 const NOMBRE_DIRECCION = { izquierda: "Hacia la izquierda", derecha: "Hacia la derecha", arriba: "Hacia arriba", abajo: "Hacia abajo" };
 const MUESTRAS = { FF0000: "Rojo", FF6000: "Naranja", FFD000: "Amarillo", "00FF00": "Verde", "00FFFF": "Cian",
   "0000FF": "Azul", "8000FF": "Morado", FF00FF: "Rosa", FFFFFF: "Blanco" };
@@ -786,6 +824,10 @@ function dibujarLuces() {
   velocidad.disabled = luces.efecto === "fijo";
   document.getElementById("velocidad-valor").textContent = luces.efecto === "fijo" ? "(el efecto Fijo no se mueve)" : `${luces.velocidad} de 5`;
   document.getElementById("direccion").value = luces.direccion;
+  const personal = luces.efecto === "personal" && !lucesApagadas;
+  document.getElementById("controles-efecto").hidden = personal;
+  document.getElementById("pintor").hidden = !personal;
+  if (personal) dibujarPintor();
 }
 
 function cambiarLuces(cambio) {
@@ -793,6 +835,10 @@ function cambiarLuces(cambio) {
   lucesApagadas = false;
   dibujarLuces();
   clearTimeout(esperaLuces);
+  if (luces.efecto === "personal") {                // se manda con «Enviar al teclado»
+    document.getElementById("estado-luces").textContent = "";
+    return;
+  }
   esperaLuces = setTimeout(enviarLuces, 300);       // los deslizadores mandan muchos cambios seguidos
 }
 
@@ -803,6 +849,7 @@ async function enviarLuces() {
   estado.textContent = "Aplicando…";
   try {
     const r = await api("/api/luces", { luces });
+    if (r.ok) ultimoEfectoEnviado = luces.efecto;
     estado.textContent = r.ok ? "Aplicado ✓" : "";
     if (!r.ok) avisar(r.mensaje, "error");
   } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
@@ -825,6 +872,114 @@ function ponerLuces(guardadas) {
   if (guardadas.efecto === "apagado") { lucesApagadas = true; return; }
   lucesApagadas = false;
   luces = { ...luces, ...guardadas };
+}
+
+// --- Colores tecla a tecla ------------------------------------------------------------------------
+let colores = { fondo: "000000", teclas: {}, brillo: 5 }, coloresGuardados = null;
+let pincel = "FF0000", pintando = false, teclasLuz = {};
+const luzDe = (t) => t.nombre || (t.etiqueta === "Fn" ? "fn" : null);
+const hayCambiosColores = () => coloresGuardados !== null && !igual(colores, coloresGuardados);
+
+function prepararPintor() {
+  const pinceles = document.getElementById("pinceles");
+  const opciones = { ...MUESTRAS, "000000": "Apagada", "": "Quitar (como el resto)" };
+  for (const [hexa, nombre] of Object.entries(opciones).reverse()) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "muestra" + (hexa === "" ? " goma" : hexa === "000000" ? " negra" : "");
+    b.dataset.pincel = hexa;
+    b.title = nombre;
+    if (hexa && hexa !== "000000") b.style.background = "#" + hexa;
+    b.addEventListener("click", () => { pincel = hexa || null; dibujarPintor(); });
+    pinceles.prepend(b);
+  }
+  document.getElementById("pincel-color").addEventListener("input", (e) => {
+    pincel = e.target.value.slice(1).toUpperCase(); dibujarPintor(); });
+  document.getElementById("fondo").addEventListener("input", (e) => {
+    colores.fondo = e.target.value.slice(1).toUpperCase(); dibujarPintor(); });
+  document.getElementById("fondo-apagado").addEventListener("click", () => { colores.fondo = "000000"; dibujarPintor(); });
+  document.getElementById("pintar-todas").addEventListener("click", () => {
+    colores = { ...colores, fondo: pincel || colores.fondo, teclas: {} }; dibujarPintor(); });
+  document.getElementById("pintura-brillo").addEventListener("input", (e) => { colores.brillo = +e.target.value; dibujarPintor(); });
+  document.getElementById("enviar-colores").addEventListener("click", enviarColores);
+  document.getElementById("deshacer-colores").addEventListener("click", () => { colores = copia(coloresGuardados); dibujarPintor(); });
+  window.addEventListener("pointerup", () => { pintando = false; });
+  window.addEventListener("resize", () => { teclasLuz = {}; if (!document.getElementById("pintor").hidden) dibujarPintor(); });
+}
+
+function pintar(luz) {
+  if (pincel === null) delete colores.teclas[luz]; else colores.teclas[luz] = pincel;
+  dibujarPintor();
+}
+
+function construirPintura() {
+  const zona = document.getElementById("pintura");
+  const disponible = zona.parentElement.clientWidth - 28;
+  if (disponible <= 0) return false;
+  const escala = Math.min(1.6, disponible / ANCHO_TECLADO);
+  zona.style.width = ANCHO_TECLADO * escala + "px";
+  zona.style.height = ALTO_TECLADO * escala + "px";
+  zona.replaceChildren();
+  teclasLuz = {};
+  for (const t of distribucion) {
+    const luz = luzDe(t);
+    if (!luz) continue;
+    const d = document.createElement("div");
+    d.className = "luz";
+    d.textContent = t.etiqueta;
+    Object.assign(d.style, { left: t.x * escala + "px", top: t.y * escala + "px",
+                             width: t.ancho * escala + "px", height: t.alto * escala + "px" });
+    d.addEventListener("pointerdown", (e) => { e.preventDefault(); pintando = true; pintar(luz); });
+    d.addEventListener("pointerenter", () => { if (pintando) pintar(luz); });
+    teclasLuz[luz] = d;
+    zona.append(d);
+  }
+  return true;
+}
+
+function dibujarPintor() {
+  if (!Object.keys(teclasLuz).length && !construirPintura()) return;
+  for (const [luz, d] of Object.entries(teclasLuz)) {
+    const color = colores.teclas[luz] || colores.fondo;
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(color.slice(i, i + 2), 16));
+    d.style.background = "#" + color;
+    d.style.color = r * 0.3 + g * 0.59 + b * 0.11 > 150 ? "#111" : "#f2f2f4";
+    d.classList.toggle("apagada", color === "000000");
+    d.classList.toggle("propia", luz in colores.teclas);
+  }
+  for (const b of document.querySelectorAll("[data-pincel]"))
+    b.setAttribute("aria-pressed", String((b.dataset.pincel || null) === pincel));
+  if (pincel) document.getElementById("pincel-color").value = "#" + pincel.toLowerCase();
+  document.getElementById("fondo").value = "#" + colores.fondo.toLowerCase();
+  document.getElementById("pintura-brillo").value = colores.brillo;
+  document.getElementById("pintura-brillo-valor").textContent = `${colores.brillo} de 5`;
+  const cambios = hayCambiosColores() || (luces.efecto === "personal" && ultimoEfectoEnviado !== "personal");
+  document.getElementById("deshacer-colores").disabled = !hayCambiosColores();
+  document.getElementById("estado-colores").textContent = hayCambiosColores() ? "Hay cambios sin enviar." : "";
+  document.getElementById("enviar-colores").textContent = cambios ? "Enviar al teclado" : "Reenviar al teclado";
+}
+
+let ultimoEfectoEnviado = null;
+async function enviarColores() {
+  const boton = document.getElementById("enviar-colores");
+  const estado = document.getElementById("estado-colores");
+  boton.disabled = true;
+  estado.textContent = "Enviando…";
+  try {
+    const r = await api("/api/colores", { colores });
+    if (r.ok) {
+      coloresGuardados = r.colores;
+      colores = copia(r.colores);
+      ultimoEfectoEnviado = "personal";
+      ponerLuces(r.luces);
+      dibujarPintor();
+      estado.textContent = "Guardado en el teclado ✓";
+    } else {
+      estado.textContent = "";
+      avisar(r.mensaje, "error");
+    }
+  } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
+  boton.disabled = false;
 }
 
 // --- Pantalla ----------------------------------------------------------------------------------
@@ -996,7 +1151,8 @@ function aplicarEstado(r, primeraVez) {
     }
     if (elegida) elegir(elegida);
   }
-  if (!enviandoLuces) ponerLuces(r.luces);
+  if (!enviandoLuces) { ponerLuces(r.luces); ultimoEfectoEnviado = r.luces ? r.luces.efecto : null; }
+  if (!coloresGuardados || !hayCambiosColores()) { coloresGuardados = r.colores; colores = copia(r.colores); }
   if (!enviandoImagen) modoPantalla = r.pantalla;
   if (!ajustes || igual(ajustes, ajustesGuardados)) { ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes); }
   const c = document.getElementById("conexion");
@@ -1019,6 +1175,7 @@ window.addEventListener("focus", async () => {
     const r = await api("/api/estado");
     catalogo = r.catalogo;
     prepararLuces();
+    prepararPintor();
     prepararPantalla();
     prepararAjustes();
     aplicarEstado(r, true);

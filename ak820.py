@@ -128,6 +128,13 @@ TECLAS_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/t
 # Lo último que se mandó a la pantalla ("reloj" o "imagen"): poner la hora vuelve a enseñar
 # el reloj, así que la app solo la pone sola si la pantalla ya estaba en el reloj.
 PANTALLA_GUARDADA = os.path.expanduser("~/Library/Application Support/ak820-mac/pantalla.json")
+# Colores tecla a tecla (efecto "personal", 0x80), sacado de la función 0x44ba10 del programa
+# oficial: 04 18 → 04 23 [8]=9 → 576 bytes como la tabla de teclas, con [n.º, R, G, B] en el
+# hueco de cada tecla (su light_index, que coincide con key_index) → 04 02 → 04 F0. Antes se
+# pone el efecto 0x80 con el brillo. El teclado no deja leerlos: se recuerdan en colores.json.
+CMD_COLORES = 0x23
+COLORES_GUARDADOS = os.path.expanduser("~/Library/Application Support/ak820-mac/colores.json")
+COLORES_DEFECTO = {"fondo": "000000", "teclas": {}, "brillo": 5}
 # Las últimas luces enviadas (para que la ventana de la app enseñe lo que hay puesto).
 LUCES_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/luces.json")
 CAPAS = {"normal": CMD_TECLAS, "fn": CMD_TECLAS_FN}
@@ -154,6 +161,8 @@ for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "delet
 NOMBRE_TECLA = {}
 for nombre, indice in POSICION_TECLA.items():
     NOMBRE_TECLA.setdefault(indice, nombre)
+# Las teclas que tienen luz: todas las del dibujo, también Fn (que no se puede remapear).
+POSICION_LUZ = {**{nombre: indice for indice, nombre in NOMBRE_TECLA.items()}, "fn": 96}
 # Teclas que no se pueden cambiar en la capa con Fn: las que el programa oficial no deja
 # (fnlayer_disable) y Supr, que el teclado ignora (probado: Fn + Supr = b no hace nada).
 NO_CAMBIABLES_FN = {POSICION_TECLA[t] for t in ("esc", "borrar", "inicio", "\\", "win", "supr")}
@@ -207,6 +216,7 @@ EFECTOS = {
     "desplazar": 0x0A, "rodar": 0x0B, "girar": 0x0C, "explosion": 0x0D,
     "lanzar": 0x0E, "ondulas": 0x0F, "fluir": 0x10, "latido": 0x11,
     "inclinar": 0x12, "lanzadera": 0x13,
+    "personal": 0x80,       # los colores tecla a tecla (orden 'colores')
 }
 DIRECCIONES = {"izquierda": 0, "abajo": 1, "arriba": 2, "derecha": 3}
 
@@ -465,6 +475,114 @@ def cmd_reloj(args):
         dispositivo.close()
     guardar_modo_pantalla("reloj")
     print(f"Reloj del teclado puesto a {t:%d/%m/%Y %H:%M:%S}. Mira la pantalla.")
+    return 0
+
+
+def color_valido(texto):
+    """'FF0000' (o '#ff0000') en mayúsculas sin '#', o None si no es un color."""
+    texto = str(texto).lstrip("#").upper()
+    return texto if len(texto) == 6 and all(c in "0123456789ABCDEF" for c in texto) else None
+
+
+def tabla_colores(config):
+    """Tabla de 576 bytes con el color de cada tecla ([posición, R, G, B] en su hueco)."""
+    tabla = bytearray(TAM_TABLA_TECLAS)
+    for nombre, posicion in POSICION_LUZ.items():
+        color = config["teclas"].get(nombre, config["fondo"])
+        tabla[posicion * 4:posicion * 4 + 4] = bytes([posicion]) + bytes.fromhex(color)
+    tabla[-2:] = b"\xaa\x55"
+    return bytes(tabla)
+
+
+def cargar_colores():
+    """Los últimos colores tecla a tecla enviados (o todo apagado si no hay)."""
+    config = {"fondo": COLORES_DEFECTO["fondo"], "teclas": {}, "brillo": COLORES_DEFECTO["brillo"]}
+    try:
+        with open(COLORES_GUARDADOS) as f:
+            guardado = json.load(f)
+        config["fondo"] = color_valido(guardado.get("fondo")) or config["fondo"]
+        config["teclas"] = {t: c for t, c in (guardado.get("teclas") or {}).items()
+                            if t in POSICION_LUZ and color_valido(c)}
+        if guardado.get("brillo") in range(1, 6):
+            config["brillo"] = guardado["brillo"]
+    except (OSError, ValueError, AttributeError):
+        pass
+    return config
+
+
+def enviar_colores(config):
+    """Pone el efecto "personal" y manda el color de cada tecla. True si llega bien.
+
+    Si va bien, recuerda los colores y que las luces están en "personal".
+    """
+    tabla = tabla_colores(config)
+    info = buscar_interfaz()
+    if info is None:
+        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+        return False
+    dispositivo = hid.device()
+    dispositivo.open_path(info["path"])
+    try:
+        enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
+        enviar(dispositivo, paquete_control(CMD_LUCES))
+        enviar(dispositivo, paquete_luces(EFECTOS["personal"], 0, 0, 0, False, config["brillo"], 0, 0))
+        enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
+        if not subir_tabla(dispositivo, CMD_COLORES, tabla):
+            print("No consigo guardar los colores en el teclado. Prueba otra vez.")
+            return False
+    finally:
+        dispositivo.close()
+    os.makedirs(os.path.dirname(COLORES_GUARDADOS), exist_ok=True)
+    with open(COLORES_GUARDADOS, "w") as f:
+        json.dump(config, f, indent=2)
+    with open(LUCES_GUARDADAS, "w") as f:
+        json.dump({"efecto": "personal", "color": "FFFFFF", "brillo": config["brillo"], "velocidad": 0,
+                   "direccion": "izquierda", "arcoiris": False}, f)
+    return True
+
+
+def describir_colores(config):
+    teclas = ", ".join(f"{t}={c}" for t, c in config["teclas"].items())
+    return (f"  Resto de teclas: {'apagadas' if config['fondo'] == '000000' else config['fondo']}\n"
+            f"  Teclas con su color: {teclas or 'ninguna'}\n  Brillo: {config['brillo']} de 5")
+
+
+def cmd_colores(args):
+    config = cargar_colores()
+    if not args.cambios and args.fondo is None and args.brillo is None:
+        print("Colores tecla a tecla (los últimos enviados desde este Mac):")
+        print(describir_colores(config))
+        return 0
+    if args.cambios == ["restaurar"]:
+        config = {"fondo": COLORES_DEFECTO["fondo"], "teclas": {}, "brillo": config["brillo"]}
+    elif args.cambios != ["reenviar"]:
+        for cambio in args.cambios:
+            origen, igual, color = cambio.partition("=")
+            origen = origen.lower()
+            nombre = "fn" if origen == "fn" else NOMBRE_TECLA.get(POSICION_TECLA.get(origen))
+            if not igual or nombre is None:
+                print(f"No entiendo '{cambio}'. Usa tecla=RRGGBB (p. ej. avpag=FF0000) o tecla=defecto.")
+                return 1
+            if color.lower() == "defecto":
+                config["teclas"].pop(nombre, None)
+            elif color_valido(color):
+                config["teclas"][nombre] = color_valido(color)
+            else:
+                print(f"'{color}' no es un color: usa 6 cifras hexadecimales, p. ej. FF0000 (rojo).")
+                return 1
+    if args.fondo is not None:
+        if not color_valido(args.fondo):
+            print(f"'{args.fondo}' no es un color: usa 6 cifras hexadecimales, p. ej. 000000 (apagado).")
+            return 1
+        config["fondo"] = color_valido(args.fondo)
+    if args.brillo is not None:
+        config["brillo"] = args.brillo
+    if not enviar_colores(config):
+        return 1
+    print("Colores guardados en el teclado:")
+    print(describir_colores(config))
+    print("(Para volver a un efecto normal: python3 ak820.py luces ...)")
     return 0
 
 
@@ -910,6 +1028,12 @@ def main(argv=None):
     si.add_argument("--bloquear", nargs="+", choices=["win", "altf4", "alttab"], help="bloquear teclas/atajos")
     si.add_argument("--desbloquear", nargs="+", choices=["win", "altf4", "alttab"])
     si.add_argument("--fabrica", action="store_true", help="volver a los ajustes de fábrica")
+    c = sub.add_parser("colores", help="un color para cada tecla (efecto 'personal')")
+    c.add_argument("cambios", nargs="*",
+                   help="tecla=RRGGBB (p. ej. avpag=FF0000), tecla=defecto, 'restaurar' o 'reenviar'. "
+                        "Sin nada, enseña los colores guardados")
+    c.add_argument("--fondo", help="color de las teclas sin color propio (000000 = apagadas)")
+    c.add_argument("--brillo", type=int, choices=range(1, 6), metavar="1-5", help="brillo (1 a 5)")
     i = sub.add_parser("imagen", help="poner una imagen en la pantalla del teclado")
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
@@ -927,7 +1051,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo,
-               "sistema": cmd_sistema}
+               "sistema": cmd_sistema, "colores": cmd_colores}
     return ordenes[args.comando](args)
 
 

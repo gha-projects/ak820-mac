@@ -14,7 +14,7 @@ from WebKit import WKWebView, WKWebViewConfiguration
 
 ESTILO = (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable)
-HAY_CAMBIOS = "(typeof catalogo !== 'undefined' && catalogo && typeof pendientes === 'function') ? pendientes() : 0"
+HAY_CAMBIOS = "(typeof catalogo !== 'undefined' && catalogo && typeof cambiosSinEnviar === 'function') ? cambiosSinEnviar() : 0"
 
 
 def menu_principal():

@@ -89,7 +89,8 @@ tiene que estar **por cable** (y en modo cable, no en Bluetooth ni 2.4G).
 - **Teclas**: un dibujo del teclado; pinchas una tecla, eliges qué hace (otra tecla o un
   atajo, multimedia, ratón, escribir un texto o varias teclas a la vez), en la capa
   normal o en la de Fn, y pulsas **Enviar al teclado**.
-- **Luces**: efecto, color, brillo, velocidad y dirección; se aplican al momento.
+- **Luces**: efecto, color, brillo, velocidad y dirección; se aplican al momento. Con
+  **🎨 Tecla a tecla** sale el dibujo del teclado para pintar cada tecla de un color.
 - **Pantalla**: elegir (o arrastrar) una imagen o GIF y enviarlo, con el progreso; o
   volver al reloj.
 - **Ajustes**: tecla Fn, reposo, tiempo de respuesta y bloqueos.
@@ -152,6 +153,22 @@ leerlo) y cada vez manda las dos capas y todas las macros. Es lo mismo que usa e
 así que se puede mezclar uno y otro. Si el teclado se resetea por otro lado,
 `python3 ak820.py teclas reenviar` le vuelve a mandar lo guardado. Detalles en
 [docs/teclas.md](docs/teclas.md).
+
+## Colores tecla a tecla
+
+```
+python3 ak820.py colores avpag=FF0000 esc=FFD000 fn=FF00FF   # cada tecla de un color
+python3 ak820.py colores --fondo 102040                       # el resto de teclas (000000 = apagadas)
+python3 ak820.py colores avpag=defecto --brillo 3             # esa tecla vuelve al fondo; brillo 1-5
+python3 ak820.py colores                                      # ver los colores guardados
+python3 ak820.py colores restaurar                            # todas al fondo apagado
+python3 ak820.py luces fijo --color 0000FF                    # volver a un efecto normal
+```
+
+Pone el efecto "personal" (0x80) y manda una tabla de 576 bytes con `[n.º, R, G, B]` en el
+hueco de cada tecla, igual que la de teclas (función `0x44ba10` del programa oficial,
+orden `04 23`). Como las teclas, el teclado no deja leerlos: se recuerdan en
+`colores.json` y los cambios se suman. `luces personal` vuelve a los colores guardados.
 
 ## Imagen en la pantalla
 
