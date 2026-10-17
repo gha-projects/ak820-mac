@@ -1,76 +1,60 @@
-# Pruebas pendientes en el teclado
+# Pruebas en el teclado
 
-Lo que está programado pero aún no se ha visto funcionar en el AK820 (PID 0x800A). Todo
-se prueba **por cable**. Se usan teclas que no hacen falta en el día a día: **RePág
-(PgUp)**, **AvPág (PgDn)** y **Supr (Delete)**, y las mismas con Fn. Inicio (Home) no
-se toca porque hace la captura de pantalla.
+Sesión del 17 de octubre de 2026, AK820 con PID 0x800A, por cable. Se usaron RePág,
+AvPág y Supr (y las mismas con Fn), y al final todo se dejó de fábrica. Los detalles
+del formato de las teclas están en [teclas.md](teclas.md).
 
-Al final de cada ronda se vuelve a lo de fábrica (la última ronda lo hace con la app).
+Para ver qué eventos de ratón llegan de verdad sirve una página web que los apunte
+(`mousedown`, `dblclick`, `wheel`): en una nota corta la rueda no mueve nada y Safari no
+usa los botones 4/5, así que a simple vista no se distingue "no llega" de "no hace nada".
 
-## Ronda 1: ratón y Multi-Key
+## Ratón y Multi-Key
 
-```
-python3 ak820.py teclas repag=multi:shift+a avpag=doble_clic supr=clic_medio
-python3 ak820.py teclas --fn repag=atras avpag=adelante supr=rueda_abajo
-```
+| Prueba | Resultado |
+|---|---|
+| `multi:shift+a` (se guarda como `shift+a`) | ✅ escribe "A" |
+| `doble_clic` (macro: pulsar y soltar el izquierdo dos veces) | ✅ selecciona la palabra |
+| `clic_medio`, también en la capa Fn | ✅ |
+| `rueda_abajo` / `rueda_arriba`, también en la capa Fn | ✅ una muesca (4 px) por pulsación |
+| Rueda con valor 5 (`01 03 05`) | ⚠️ igual que 1: el teclado solo mira el signo |
+| `01 01 03` ("doble clic" del programa oficial) | ⚠️ pulsa izquierdo y derecho a la vez: en el Mac, clic derecho |
+| Botones 4/5 (atrás/adelante) | ❌ el ratón del teclado solo declara 3 botones (su descriptor HID: `Usage Max 3`) |
 
-| # | Pulsa | Debería | Resultado |
-|---|---|---|---|
-| 1 | RePág (en Notas) | escribir **A** mayúscula (`multi:shift+a` → combinación `shift+a`) | |
-| 2 | AvPág con el ratón sobre una palabra | **seleccionar la palabra** (doble clic) | |
-| 3 | Supr con el ratón sobre un enlace de Safari | abrir el enlace en **otra pestaña** (clic central) | |
-| 4 | Fn + RePág en Safari, tras visitar dos páginas | **página anterior** | |
-| 5 | Fn + AvPág | **página siguiente** | |
-| 6 | Fn + Supr en una página larga | **bajar** un poco (rueda) | |
+## Multimedia
 
-## Ronda 2: multimedia
+| Prueba | Resultado |
+|---|---|
+| `anterior`, `siguiente`, `silencio`, `volumen-` | ✅ |
+| `brillo-`, `brillo+` (en la capa Fn) | ✅ brillo de la pantalla del Mac |
+| Fn + Supr → cualquier cosa | ❌ el teclado no deja cambiarla (ahora `ak820.py` lo avisa) |
 
-```
-python3 ak820.py teclas repag=anterior avpag=siguiente supr=silencio
-python3 ak820.py teclas --fn repag=brillo- avpag=brillo+ supr=volumen-
-```
+## Macros
 
-| # | Pulsa | Debería | Resultado |
-|---|---|---|---|
-| 1 | RePág / AvPág con música sonando | **canción anterior / siguiente** | |
-| 2 | Supr | **silenciar** (y otra vez, quitar el silencio) | |
-| 3 | Fn + RePág / Fn + AvPág | **bajar / subir el brillo** de la pantalla del Mac | |
-| 4 | Fn + Supr | **bajar el volumen** | |
+| Prueba | Resultado |
+|---|---|
+| `--modo mantener` | ✅ se repite mientras se mantiene |
+| `--modo alternar` | ✅ un toque empieza, otro para |
+| `--modo paso` (modo 4, "al hacer clic" en el oficial) | ✅ cada pulsación escribe la siguiente letra |
 
-## Ronda 3: macro en modo "clic"
+## Ajustes del sistema
 
-```
-python3 ak820.py teclas avpag=texto:hola --modo clic
-```
+En modo Mac la tecla rotulada Alt hace de Cmd y la rotulada Win hace de Option.
 
-El programa oficial lo llama "al hacer clic" (modo 4), sin más explicación. Se prueba
-un toque corto y mantener: hay que ver qué hace.
+| Prueba | Resultado |
+|---|---|
+| `--fn-modo alternar` | ✅ un toque a Fn activa la capa Fn, otro la quita |
+| `--bloquear win` | Sin efecto en modo Mac: Cmd + A y Win (Option) + V siguen funcionando |
+| `--bloquear alttab altf4` | Sin efecto en modo Mac: Cmd + Tab sigue funcionando |
+| `--respuesta 5` | No se nota escribiendo normal ni golpeando rápido la misma tecla |
+| `--fabrica` | ✅ |
 
-## Ronda 4: ajustes del sistema
+## App de la barra de menús
 
-En modo Mac el teclado intercambia Win y Alt: la tecla rotulada **Alt** hace de **Cmd** y
-la rotulada **Win** hace de **Option**. Hay que ver qué bloquea cada opción.
-
-| # | Orden | Prueba | Resultado |
-|---|---|---|---|
-| 1 | `sistema --bloquear win` | ¿Cmd + A selecciona todo? ¿Win + 2 escribe "@"? | |
-| 2 | `sistema --desbloquear win --bloquear alttab altf4` | ¿Cmd + Tab cambia de app? | |
-| 3 | `sistema --desbloquear alttab altf4 --respuesta 5` | escribir rápido: ¿se nota algo? | |
-| 4 | `sistema --respuesta 1` | escribir rápido: ¿se nota algo? | |
-| 5 | `sistema --fabrica` | todo como de fábrica (el reposo vuelve a 5 min) | |
-
-## Ronda 5: la app (lo que falta)
-
-Con `Abrir AK820.command`:
-
-| # | Menú | Debería | Resultado |
-|---|---|---|---|
-| 1 | Poner el reloj en hora | ✓ en el icono y la hora correcta en la pantalla | |
-| 2 | Imagen o GIF… → `Art Spiderman GIF.gif` | el icono enseña el %, luego ✓ y el GIF en la pantalla | |
-| 3 | Luces → Espectro / Ola de colores / Apagadas | lo que dice cada uno | |
-| 4 | Luces → Brillo → 2 (con una luz puesta) | más tenue | |
-| 5 | Reposo → 5 minutos | ventana con el ajuste | |
-| 6 | Sistema → Tecla Fn → Pulsar para activar/desactivar, y luego volver | ventana con el ajuste | |
-| 7 | Sistema → Ajustes de fábrica | ventana con los ajustes de fábrica | |
-| 8 | Teclas → Restaurar teclas de fábrica | ✓; RePág, AvPág y Supr vuelven a ser normales | |
-| 9 | Teclas → Abrir guía de teclas | se abre `docs/teclas.md` | |
+| Prueba | Resultado |
+|---|---|
+| Comprobar teclado, Sistema → Ver ajustes actuales | ✅ ventana con la respuesta |
+| Reloj | ✅ |
+| Imagen o GIF… (GIF de 77 fotogramas) | ✅ el icono enseña el % y acaba en ✓ |
+| Luces: Fijo, Respirar, Ola de colores, Apagadas, Brillo | ✅ |
+| Reposo → 5 minutos | ✅ |
+| Sistema → Tecla Fn (los dos modos) | ✅ |

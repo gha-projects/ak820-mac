@@ -23,7 +23,8 @@ python3 ak820.py teclas lista                      # todos los nombres
 - Los orígenes se llaman como están **rotulados** en el teclado (`win`, `alt`…). En modo
   Mac el teclado intercambia Win y Alt por su cuenta; una tecla cambiada manda
   exactamente lo que se pide (`cmd`, `option`…), sin ese intercambio.
-- En la capa con Fn no se pueden cambiar Esc, Inicio ni Win (el programa oficial tampoco).
+- En la capa con Fn no se pueden cambiar Esc, Inicio ni Win (el programa oficial tampoco),
+  ni Supr (el teclado ignora el cambio).
 
 ## Probado en el teclado
 
@@ -39,7 +40,17 @@ python3 ak820.py teclas lista                      # todos los nombres
 | AvPág → macro "hola" `--modo mantener` | ✅ se repite mientras se mantiene |
 | AvPág → macro "hola" `--modo alternar` | ✅ un toque empieza, otro para |
 | `sistema --fn-modo alternar` + Fn + AvPág → `b` | ✅ un toque a Fn activa la capa Fn, otro la quita |
+| RePág → `multi:shift+a` (se guarda como `shift+a`) | ✅ escribe "A" |
+| AvPág → `doble_clic` (macro de dos clics) | ✅ selecciona la palabra |
+| Supr → `clic_medio`; Fn + AvPág → `clic_medio` | ✅ también en la capa Fn |
+| `rueda_abajo` / `rueda_arriba` (también con Fn) | ✅ una muesca por pulsación |
+| `anterior`, `siguiente`, `silencio`, `volumen-`; Fn → `brillo-`, `brillo+` | ✅ |
+| AvPág → macro "hola" `--modo paso` (modo 4) | ✅ cada pulsación escribe la siguiente letra |
 | AvPág → Multi-Key `07 E1 04 00` (Shift + A) | ⚠️ escribe "a": macOS ignora el Shift |
+| Ratón `01 01 03` (el "doble clic" del programa oficial) | ⚠️ pulsa izquierdo y derecho a la vez: en el Mac, clic derecho |
+| Rueda `01 03 05` (cinco muescas) | ⚠️ baja solo una: el teclado ignora el valor |
+| Ratón botones 4/5 (`08`/`10`, atrás/adelante) | ❌ el ratón del teclado solo declara 3 botones; el Mac los descarta |
+| Fn + Supr → `b` | ❌ el teclado no deja cambiarla |
 | Todas las teclas asignadas a sí mismas | ⚠️ Cmd/Option se cambiaron: el modo Mac deja de intercambiar Win y Alt |
 
 ## De dónde sale
@@ -78,9 +89,9 @@ Cada tecla ocupa los bytes `key_index × 4` a `key_index × 4 + 3`:
 | `02 <mods> <tecla> 00` | Tecla o combinación. Mods: Ctrl `01`, Shift `02`, Alt/Option `04`, Win/Cmd `08` (los derechos: `10 20 40 80`) |
 | `02 <mods> 00 00` | Solo modificadores |
 | `03 <lo> <hi> 00` | Multimedia (USB "consumer"): play `CD`, siguiente `B5`, anterior `B6`, stop `B7`, silencio `E2`, vol+ `E9`, vol− `EA` |
-| `01 01 <botones> 00` | Clic de ratón: izq. `01`, der. `02`, central `04`, atrás `08`, adelante `10` |
-| `01 03 <rueda> 00` | Rueda: `01` arriba, `FF` abajo |
-| `06 <macro> <modo> <veces>` | Lanza la macro n.º `<macro>`. Modos del programa oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar, 3 mientras se mantiene, 4 al hacer clic |
+| `01 01 <botones> 00` | Clic de ratón: izq. `01`, der. `02`, central `04` (el oficial también ofrece atrás `08` y adelante `10`, pero el ratón del teclado solo declara 3 botones) |
+| `01 03 <rueda> 00` | Rueda: `01` arriba, `FF` abajo (una muesca por pulsación) |
+| `06 <macro> <modo> <veces>` | Lanza la macro n.º `<macro>`. Modos del programa oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar, 3 mientras se mantiene, 4 "al hacer clic" (cada pulsación escribe la siguiente tecla de la macro; `--modo paso`) |
 | `07 <t1> <t2> <t3>` | "Multi-Key": hasta 3 teclas normales a la vez (códigos USB; hueco libre `00`) |
 
 En el Multi-Key, el programa oficial también deja poner modificadores (`E0`–`E7`), pero

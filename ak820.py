@@ -93,7 +93,7 @@ TAM_TABLA_TECLAS = 576
 # El bloque se rellena hasta múltiplo de 64 (con al menos 1 byte libre) y acaba en AA 55.
 # Una tecla lanza la macro n.º i con la entrada 06 i <modo> <veces> en la tabla de
 # teclas (modos del oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar,
-# 3 mientras se mantiene, 4 al hacer clic).
+# 3 mientras se mantiene, 4 "al hacer clic": cada pulsación escribe la siguiente tecla).
 # --- Ajustes del sistema (reposo) -------------------------------------------
 # Función 0x414060 del programa oficial: EMPEZAR -> 04 17 01 ... [8]=01 -> datos
 # -> CONFIRMAR (sin GUARDAR). El paquete de datos lleva varios ajustes a la vez:
@@ -115,7 +115,7 @@ AJUSTES_GUARDADOS = os.path.expanduser("~/Library/Application Support/ak820-mac/
 CMD_MACROS = 0x19
 CMD_MACROS_DATOS = 0x15
 # Modos de reproducción (valores del desplegable del programa oficial, 0x4101c0).
-MODO_MACRO = {"una": 0, "veces": 1, "alternar": 2, "mantener": 3, "clic": 4}
+MODO_MACRO = {"una": 0, "veces": 1, "alternar": 2, "mantener": 3, "paso": 4}
 TAM_MACROS = 0xE00
 INICIO_MACROS = 400
 PAUSA_MACRO_MS = 15         # espera entre pulsaciones dentro de una macro
@@ -137,8 +137,9 @@ POSICION_TECLA = {
 for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "delete": "supr",
                       "backspace": "borrar", "capslock": "bloqmayus", "space": "espacio"}.items():
     POSICION_TECLA[alias] = POSICION_TECLA[nombre]
-# Teclas que el programa oficial no deja cambiar en la capa con Fn (fnlayer_disable).
-NO_CAMBIABLES_FN = {POSICION_TECLA[t] for t in ("esc", "inicio", "win")}
+# Teclas que no se pueden cambiar en la capa con Fn: las que el programa oficial no deja
+# (fnlayer_disable) y Supr, que el teclado ignora (probado: Fn + Supr = b no hace nada).
+NO_CAMBIABLES_FN = {POSICION_TECLA[t] for t in ("esc", "inicio", "win", "supr")}
 
 # Modificadores (bits del primer byte de una combinación, estándar USB).
 MODIFICADOR = {"ctrl": 0x01, "shift": 0x02, "option": 0x04, "alt": 0x04, "cmd": 0x08, "win": 0x08,
@@ -150,10 +151,12 @@ MULTIMEDIA = {"play": 0xCD, "siguiente": 0xB5, "anterior": 0xB6, "stop": 0xB7,
               "silencio": 0xE2, "volumen+": 0xE9, "volumen-": 0xEA,
               "brillo+": 0x6F, "brillo-": 0x70}
 
-# Ratón: (tipo, valor). Tipo 1 = botones (bits USB: 1 izq., 2 der., 4 central;
-# 3 = doble clic en el programa oficial), 3 = rueda.
+# Ratón: (tipo, valor). Tipo 1 = botones (bits USB: 1 izq., 2 der., 4 central), 3 = rueda
+# (01 arriba, FF abajo: una muesca por pulsación; el teclado ignora valores mayores). El programa
+# oficial también ofrece botón 4/5 (08/10), pero el ratón del teclado solo declara 3
+# botones y el Mac los descarta. Su "doble clic" (01 01 03) pulsa izquierdo y derecho a la
+# vez (en el Mac hace de clic derecho); el doble clic se hace con una macro.
 RATON = {"clic": (0x01, 0x01), "clic_der": (0x01, 0x02), "clic_medio": (0x01, 0x04),
-         "doble_clic": (0x01, 0x03), "atras": (0x01, 0x08), "adelante": (0x01, 0x10),
          "rueda_arriba": (0x03, 0x01), "rueda_abajo": (0x03, 0xFF)}
 
 # "Multi-Key" del programa oficial: hasta 3 teclas a la vez, 07 <t1> <t2> <t3>. El
@@ -304,6 +307,13 @@ def eventos_texto(texto):
         for codigo in reversed(codigos):             # soltar (Shift el último)
             eventos += [bytes([0, 0, codigo, 0x30]), espera]
     return eventos
+
+
+def eventos_doble_clic():
+    """Eventos de macro para un doble clic izquierdo (pulsar y soltar dos veces)."""
+    espera = PAUSA_MACRO_MS.to_bytes(2, "little") + b"\x00\x50"
+    clic = [bytes([0, 0, 0x01, 0x90]), espera, bytes([0, 0, 0x01, 0x10]), espera]
+    return clic * 2
 
 
 def bloque_macros(macros):
@@ -579,7 +589,7 @@ def cmd_teclas(args):
         print("  " + " ".join(sorted(CODIGO_TECLA)))
         print("Modificadores:", " ".join(sorted(MODIFICADOR)))
         print("Multimedia:", " ".join(MULTIMEDIA))
-        print("Ratón:", " ".join(RATON))
+        print("Ratón:", " ".join(RATON), "doble_clic")
         return 0
     capa = CMD_TECLAS_FN if args.fn else CMD_TECLAS
     cambios = {}
@@ -588,7 +598,10 @@ def cmd_teclas(args):
         for cambio in args.cambios:
             origen, _, destino = cambio.partition("=")
             origen = origen.lower()
-            if destino.lower().startswith("texto:"):
+            if destino.lower() == "doble_clic":
+                macros.append(eventos_doble_clic())
+                entrada = bytes([0x06, len(macros) - 1, MODO_MACRO["una"], 1])
+            elif destino.lower().startswith("texto:"):
                 # Macro que escribe un texto: 06 <n.º de macro> <modo> <veces>
                 # (modo 0 = una vez; modo 1 = N veces; probado en el teclado)
                 eventos = eventos_texto(destino[len("texto:"):])
@@ -604,7 +617,7 @@ def cmd_teclas(args):
                 print(f"No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista")
                 return 1
             if args.fn and POSICION_TECLA[origen] in NO_CAMBIABLES_FN:
-                print(f"'{origen}' no se puede cambiar en la capa con Fn (tampoco en el programa oficial).")
+                print(f"'{origen}' no se puede cambiar en la capa con Fn.")
                 return 1
             cambios[POSICION_TECLA[origen]] = entrada
     info = buscar_interfaz()
@@ -751,7 +764,8 @@ def main(argv=None):
                    help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")
     t.add_argument("--modo", choices=MODO_MACRO,
                    help="cómo se reproducen las macros: una (por defecto), veces (con --veces), "
-                        "alternar (hasta volver a pulsar), mantener (mientras se mantiene), clic")
+                        "alternar (hasta volver a pulsar), mantener (mientras se mantiene), "
+                        "paso (cada pulsación escribe la siguiente tecla)")
     args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo,

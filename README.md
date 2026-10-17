@@ -94,7 +94,7 @@ Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable
 python3 ak820.py reposo 5                      # 1, 5, 30 o nunca
 python3 ak820.py sistema --fn-modo alternar    # Fn activa/desactiva la capa Fn (de fábrica: mantener)
 python3 ak820.py sistema --respuesta 3         # antirrebote, nivel 1 (rápido) a 5; de fábrica 2
-python3 ak820.py sistema --bloquear win        # también altf4, alttab; --desbloquear para quitarlo
+python3 ak820.py sistema --bloquear win        # también altf4, alttab (solo en modo Windows)
 python3 ak820.py sistema                       # ver los últimos ajustes enviados
 python3 ak820.py sistema --fabrica             # volver a los de fábrica
 ```
@@ -109,10 +109,11 @@ leerlos, así que el programa recuerda los últimos enviados (en
 ```
 python3 ak820.py teclas avpag=b                  # PgDn escribe "b"
 python3 ak820.py teclas repag=cmd+a avpag=volumen+  # combinaciones y multimedia
-python3 ak820.py teclas supr=clic_der              # ratón
+python3 ak820.py teclas supr=clic_der              # ratón (también clic_medio, doble_clic, rueda_abajo...)
 python3 ak820.py teclas --fn avpag=play            # capa con Fn (Fn + PgDn)
 python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
 python3 ak820.py teclas avpag=texto:hola --modo mantener  # se repite mientras se mantiene
+                                                   # (también alternar y paso)
 python3 ak820.py teclas avpag=multi:a+s            # "Multi-Key": hasta 3 teclas a la vez
 python3 ak820.py teclas restaurar                  # todas de fábrica (añade --fn para esa capa)
 python3 ak820.py teclas lista                      # todos los nombres
