@@ -295,6 +295,13 @@ class EnvioConFallos(ConTecladoFalso):
         self.assertIn("repitiendo", salida)
         self.assertEqual(self.teclado.ordenes().count(0x11), 2)
 
+    def test_ajustes_reintentan(self):
+        # pasaba al volver a mandarlo todo por cable: los ajustes, justo detrás de las luces
+        codigo, salida = self.orden("sistema", "--fn-modo", "alternar")
+        self.assertEqual(codigo, 0, salida)
+        self.assertEqual(self.teclado.ordenes().count(0x17), 2)
+        self.assertEqual(ak820.cargar_ajustes()["fn"], 1)
+
 
 class Colores(ConTecladoFalso):
     def test_tabla(self):

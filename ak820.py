@@ -1123,12 +1123,18 @@ def enviar_ajustes(ajustes):
                 print(sin_respuesta_24g("los ajustes"))
                 return 1
             return guardar_ajustes(ajustes)
-        enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
-        enviar(dispositivo, paquete_control(CMD_SISTEMA, byte2=0x01, byte8=0x01))
-        time.sleep(PAUSA)
-        dispositivo.send_feature_report(bytes([0x00]) + datos)   # sin leer respuesta, como el oficial
-        time.sleep(PAUSA)
-        respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        # Justo después de otro cambio (p. ej. las luces, al volver a mandarlo todo) el teclado
+        # aún está guardando y a veces pierde el paquete: la suma no cuadra y se repite.
+        for _intento in range(3):
+            enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
+            enviar(dispositivo, paquete_control(CMD_SISTEMA, byte2=0x01, byte8=0x01))
+            time.sleep(PAUSA)
+            dispositivo.send_feature_report(bytes([0x00]) + datos)   # sin leer respuesta, como el oficial
+            time.sleep(PAUSA)
+            respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+            if not respuesta or int.from_bytes(respuesta[5:7], "little") == sum(datos) & 0xFFFF:
+                break
+            time.sleep(0.2)
     finally:
         dispositivo.close()
     if respuesta and int.from_bytes(respuesta[5:7], "little") != sum(datos) & 0xFFFF:

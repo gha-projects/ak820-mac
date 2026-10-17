@@ -254,7 +254,6 @@
  "Luces": "Lights",
  "Luces de juego 1 (FPS: W A S D y flechas)": "Game lights 1 (FPS: W A S D and arrows)",
  "Luces de juego 2 (LOL)": "Game lights 2 (LOL)",
- "Luces de juego 3 (oficina: letras y flechas)": "Game lights 3 (office: letters and arrows)",
  "Luces: {efecto}, color #{color}, brillo {brillo}, velocidad {velocidad}. Mira el teclado.": "Lights: {efecto}, color #{color}, brightness {brillo}, speed {velocidad}. Look at the keyboard.",
  "Manteniéndola 3 s: emparejar el receptor 2.4G": "Hold 3 s: pair the 2.4G receiver",
  "Manteniéndola 3-5 s: todo el teclado de fábrica": "Hold 3–5 s: whole keyboard back to factory",
@@ -511,5 +510,6 @@
  "Encendiendo…": "Turning on…",
  "Luces apagadas ✓": "Lights off ✓",
  "No sé qué luces tenías antes de apagarlas: elige un efecto.": "I don't know which lights you had before turning them off: choose an effect.",
- "efecto de luz; 'encender' vuelve a las de antes de 'apagado'": "lighting effect; 'on' brings back the lights you had before 'off'"
+ "efecto de luz; 'encender' vuelve a las de antes de 'apagado'": "lighting effect; 'on' brings back the lights you had before 'off'",
+ "Luces de juego 3 (oficina: letras y flechas). En algunos teclados viene vacía y no enciende nada, ni después de un reset": "Game lights 3 (office: letters and arrows). On some keyboards it comes empty and lights nothing, even after a reset"
 }
