@@ -113,7 +113,7 @@ python3 ak820.py teclas supr=clic_der              # ratón
 python3 ak820.py teclas --fn avpag=play            # capa con Fn (Fn + PgDn)
 python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
 python3 ak820.py teclas avpag=texto:hola --modo mantener  # se repite mientras se mantiene
-python3 ak820.py teclas avpag=multi:shift+a        # "Multi-Key": hasta 3 teclas a la vez
+python3 ak820.py teclas avpag=multi:a+s            # "Multi-Key": hasta 3 teclas a la vez
 python3 ak820.py teclas restaurar                  # todas de fábrica (añade --fn para esa capa)
 python3 ak820.py teclas lista                      # todos los nombres
 ```

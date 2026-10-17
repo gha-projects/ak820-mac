@@ -12,6 +12,7 @@ python3 ak820.py teclas supr=clic_der              # ratón
 python3 ak820.py teclas --fn avpag=siguiente       # capa con Fn (Fn + AvPág)
 python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
 python3 ak820.py teclas avpag=texto:hola --veces 3 # ...y lo repite 3 veces
+python3 ak820.py teclas avpag=multi:a+s            # Multi-Key: A y S a la vez
 python3 ak820.py teclas restaurar                  # capa normal de fábrica
 python3 ak820.py teclas --fn restaurar             # capa con Fn de fábrica
 python3 ak820.py teclas lista                      # todos los nombres
@@ -34,6 +35,11 @@ python3 ak820.py teclas lista                      # todos los nombres
 | Supr → `clic_der` | ✅ (con el bit USB `02`; `04` es el botón central) |
 | Fn + AvPág → `play` | ✅ |
 | AvPág → macro "hola", 3 veces / "Hola", 2 veces | ✅ |
+| AvPág → `multi:a+s` (Multi-Key) | ✅ escribe "as" |
+| AvPág → macro "hola" `--modo mantener` | ✅ se repite mientras se mantiene |
+| AvPág → macro "hola" `--modo alternar` | ✅ un toque empieza, otro para |
+| `sistema --fn-modo alternar` + Fn + AvPág → `b` | ✅ un toque a Fn activa la capa Fn, otro la quita |
+| AvPág → Multi-Key `07 E1 04 00` (Shift + A) | ⚠️ escribe "a": macOS ignora el Shift |
 | Todas las teclas asignadas a sí mismas | ⚠️ Cmd/Option se cambiaron: el modo Mac deja de intercambiar Win y Alt |
 
 ## De dónde sale
@@ -75,9 +81,13 @@ Cada tecla ocupa los bytes `key_index × 4` a `key_index × 4 + 3`:
 | `01 01 <botones> 00` | Clic de ratón: izq. `01`, der. `02`, central `04`, atrás `08`, adelante `10` |
 | `01 03 <rueda> 00` | Rueda: `01` arriba, `FF` abajo |
 | `06 <macro> <modo> <veces>` | Lanza la macro n.º `<macro>`. Modos del programa oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar, 3 mientras se mantiene, 4 al hacer clic |
+| `07 <t1> <t2> <t3>` | "Multi-Key": hasta 3 teclas normales a la vez (códigos USB; hueco libre `00`) |
 
-Otros tipos del programa oficial que no están en `ak820.py`: `07 a b c` ("Multi-Key",
-hasta 3 teclas a la vez), `05 02 xx` (abrir programa, web o enviar texto: los ejecuta
+En el Multi-Key, el programa oficial también deja poner modificadores (`E0`–`E7`), pero
+el teclado los manda como teclas normales y macOS los ignora: `07 E1 04 00` escribe "a",
+no "A". Por eso `multi:shift+a` se guarda como la combinación `02 02 04 00`.
+
+Otros tipos del programa oficial que no están en `ak820.py`: `05 02 xx` (abrir programa, web o enviar texto: los ejecuta
 el programa del PC, no el teclado) y `05 03 00 00` (probablemente "desactivar tecla").
 
 ## Macros

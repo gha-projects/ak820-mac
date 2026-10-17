@@ -156,11 +156,10 @@ RATON = {"clic": (0x01, 0x01), "clic_der": (0x01, 0x02), "clic_medio": (0x01, 0x
          "doble_clic": (0x01, 0x03), "atras": (0x01, 0x08), "adelante": (0x01, 0x10),
          "rueda_arriba": (0x03, 0x01), "rueda_abajo": (0x03, 0xFF)}
 
-# "Multi-Key" del programa oficial: hasta 3 teclas a la vez, 07 <t1> <t2> <t3>, con
-# los modificadores como teclas (códigos USB E0-E7), no como bits.
-CODIGO_MODIFICADOR = {"ctrl": 0xE0, "shift": 0xE1, "option": 0xE2, "alt": 0xE2, "cmd": 0xE3,
-                      "win": 0xE3, "ctrl_der": 0xE4, "shift_der": 0xE5, "option_der": 0xE6,
-                      "alt_der": 0xE6, "cmd_der": 0xE7, "win_der": 0xE7}
+# "Multi-Key" del programa oficial: hasta 3 teclas a la vez, 07 <t1> <t2> <t3>. El
+# programa oficial admite modificadores (códigos USB E0-E7), pero el teclado los manda
+# junto a las teclas normales y macOS los ignora (multi:shift+a escribe "a"). Por eso
+# un multi con modificadores se convierte en la combinación normal (02).
 
 # Teclas que se pueden asignar como destino (códigos USB HID).
 CODIGO_TECLA = {
@@ -253,11 +252,13 @@ def entrada_tecla(destino):
     destino = destino.lower()
     if destino.startswith("multi:"):
         teclas = destino[len("multi:"):].split("+")
-        if not 1 <= len(teclas) <= 3:
+        mods = [t for t in teclas if t in MODIFICADOR]
+        normales = [t for t in teclas if t not in MODIFICADOR]
+        if mods:
+            return entrada_tecla("+".join(mods + normales)) if len(normales) <= 1 else None
+        if not 1 <= len(normales) <= 3 or any(t not in CODIGO_TECLA for t in normales):
             return None
-        codigos = [CODIGO_TECLA.get(t) or CODIGO_MODIFICADOR.get(t) for t in teclas]
-        if None in codigos:
-            return None
+        codigos = [CODIGO_TECLA[t] for t in normales]
         return bytes([0x07] + codigos + [0x00] * (3 - len(codigos)))
     if destino in MULTIMEDIA:
         codigo = MULTIMEDIA[destino]
