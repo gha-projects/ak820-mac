@@ -82,6 +82,7 @@ Como destino, por ahora, solo teclas normales (no Cmd/Ctrl/Option). Detalles en
 
 ```
 python3 ak820.py imagen ~/Desktop/foto.jpg   # cualquier JPG/PNG; se recorta al centro a 128x128
+python3 ak820.py imagen ~/Desktop/anim.gif   # GIF animado (hasta 140 fotogramas, 30-500 ms cada uno)
 python3 ak820.py imagen prueba               # franjas de prueba para diagnosticar
 python3 ak820.py reloj                       # volver al reloj (o salir de "loading")
 ```
@@ -92,7 +93,6 @@ Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla
 
 1. Teclas: modificadores, capa con Fn, multimedia y macros (ver [docs/teclas.md](docs/teclas.md)).
 2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
-3. GIFs animados en la pantalla (el formato ya admite varios fotogramas).
 
 ## Créditos
 

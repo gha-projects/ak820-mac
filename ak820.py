@@ -59,6 +59,7 @@ PANTALLA = 128
 CABECERA = 256
 BLOQUE = 4096
 HUECO_IMAGEN = 1
+MAX_FOTOGRAMAS = 140        # límite del teclado (config.xml oficial: gif_maxframes)
 
 # --- Teclas (remapeo dentro del propio teclado) ------------------------------
 # Formato del programa oficial (función 0x418420 de DeviceDriver.exe v1.0.0.5),
@@ -203,13 +204,27 @@ def imagen_de_prueba():
     return imagen
 
 
-def bloques_imagen(pixeles):
-    """Cabecera + píxeles, rellenado con 0xFF hasta completar bloques de 4096 bytes."""
+def fotogramas(imagen):
+    """Lista de (píxeles RGB565, duración en ms). Una imagen fija es un solo fotograma."""
+    from PIL import ImageSequence
+    if not getattr(imagen, "is_animated", False):
+        return [(pixeles_rgb565(imagen), 0)]
+    lista = []
+    for fotograma in ImageSequence.Iterator(imagen):
+        duracion = fotograma.info.get("duration") or 100
+        # El programa oficial solo permite entre 30 y 500 ms por fotograma.
+        lista.append((pixeles_rgb565(fotograma), min(max(duracion, 30), 500)))
+    return lista
+
+
+def bloques_imagen(lista):
+    """Cabecera + fotogramas, rellenado con 0xFF hasta completar bloques de 4096 bytes."""
     cabecera = bytearray(b"\xff" * CABECERA)
-    cabecera[0] = 1         # un fotograma
-    cabecera[1] = 1         # su duración en pasos de 2 ms (el programa oficial pone 1 como mínimo)
-    datos = bytes(cabecera) + pixeles
-    n = -(-len(datos) // BLOQUE)            # bloques necesarios (9 para una imagen)
+    cabecera[0] = len(lista)                     # n.º de fotogramas
+    for i, (_, duracion) in enumerate(lista):
+        cabecera[1 + i] = max(1, duracion // 2)  # en pasos de 2 ms; 1 como mínimo, como el oficial
+    datos = bytes(cabecera) + b"".join(pixeles for pixeles, _ in lista)
+    n = -(-len(datos) // BLOQUE)                 # bloques necesarios (9 para una imagen fija)
     datos += b"\xff" * (n * BLOQUE - len(datos))
     return [datos[i * BLOQUE:(i + 1) * BLOQUE] for i in range(n)]
 
@@ -360,22 +375,35 @@ def cmd_imagen(args):
         imagen = imagen_de_prueba()
     else:
         imagen = Image.open(args.archivo)
-    bloques = bloques_imagen(pixeles_rgb565(imagen))
+    lista = fotogramas(imagen)
+    if len(lista) > MAX_FOTOGRAMAS:
+        print(f"El GIF tiene {len(lista)} fotogramas; el teclado admite {MAX_FOTOGRAMAS}. "
+              f"Se envían los primeros {MAX_FOTOGRAMAS}.")
+        lista = lista[:MAX_FOTOGRAMAS]
+    bloques = bloques_imagen(lista)
+    if len(lista) > 1:
+        print(f"GIF animado: {len(lista)} fotogramas, {len(bloques)} bloques "
+              f"(unos {len(bloques) * 45 // 1000 + 1} s).")
 
+    aviso = bytearray(paquete_control(CMD_IMAGEN, byte2=HUECO_IMAGEN, byte8=len(bloques) & 0xFF))
+    aviso[9] = len(bloques) >> 8                     # el n.º de bloques ocupa dos bytes
     control = hid.device()
     control.open_path(control_info["path"])
     datos = hid.device()
     datos.open_path(datos_info["path"])
     try:
         enviar(control, paquete_control(CMD_EMPEZAR, byte8=0x00))
-        enviar(control, paquete_control(CMD_IMAGEN, byte2=HUECO_IMAGEN, byte8=len(bloques)))
+        enviar(control, bytes(aviso))
+        avance = 0
         for n, bloque in enumerate(bloques, 1):
             datos.write(b"\x00" + bloque)
             if not datos.read(PACKET_SIZE + 1, 3000):   # espera el "recibido"
                 print(f"El teclado no ha confirmado el bloque {n}/{len(bloques)}.")
                 print("Vuelve a la pantalla normal con: python3 ak820.py reloj")
                 return 1
-            print(f"  bloque {n}/{len(bloques)} enviado")
+            if n * 10 // len(bloques) > avance or n == len(bloques):
+                avance = n * 10 // len(bloques)
+                print(f"  {n * 100 // len(bloques)} % enviado")
         enviar(control, paquete_control(CMD_CONFIRMAR, byte8=0x00))
         time.sleep(0.1)
     finally:

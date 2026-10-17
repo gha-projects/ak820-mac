@@ -17,6 +17,11 @@ Formato exacto del programa oficial (sacado de su código, ver más abajo):
 el teclado ignora el `04 02` final: la pantalla "carga" y vuelve a sus animaciones.
 Ese detalle es lo que nos tuvo toda la noche dando vueltas; lo que sigue es la historia.
 
+**GIF animados** (probado: 4 fotogramas): la cabecera lleva `[0]` = n.º de fotogramas
+(máx. 140) y `[1+i]` = duración de cada uno en pasos de 2 ms (el programa oficial la
+limita a 30–500 ms); los fotogramas van seguidos (32 768 bytes cada uno) y el n.º de
+bloques ocupa los bytes 8 y 9 del aviso `04 72`.
+
 Los repos de la comunidad daban la subida de imágenes por imposible en macOS ("la
 interfaz 0xFF68 se cuelga"). No lo es: solo hay que avisar antes al teclado.
 
