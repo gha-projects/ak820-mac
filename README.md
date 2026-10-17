@@ -72,6 +72,7 @@ python3 ak820.py teclas avpag=b                  # PgDn escribe "b"
 python3 ak820.py teclas repag=cmd+a avpag=volumen+  # combinaciones y multimedia
 python3 ak820.py teclas supr=clic_der              # ratón
 python3 ak820.py teclas --fn avpag=play            # capa con Fn (Fn + PgDn)
+python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
 python3 ak820.py teclas restaurar                  # todas de fábrica (añade --fn para esa capa)
 python3 ak820.py teclas lista                      # todos los nombres
 ```
@@ -92,8 +93,8 @@ Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla
 
 ## Próximos pasos
 
-1. Macros en el teclado (ver [docs/teclas.md](docs/teclas.md)).
-2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
+1. Temporizador de reposo (probado por cable sin efecto; ahora sabemos que el programa
+   oficial lo manda junto a otros ajustes del sistema, ver la función `0x414060`).
 
 ## Créditos
 

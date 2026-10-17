@@ -79,6 +79,25 @@ CMD_TECLAS = 0x11
 CMD_TECLAS_FN = 0x27        # la misma tabla, pero para la capa con Fn
 TAM_TABLA_TECLAS = 576
 
+# --- Macros ----------------------------------------------------------------
+# Formato del programa oficial (función 0x42d6f0 de DeviceDriver.exe v1.0.0.5):
+#   04 19 -> 04 15 con byte 8 = n.º de paquetes -> bloque de macros en paquetes
+#   de 64 bytes (sin leer respuesta) -> 04 02.
+# Bloque (máx. 3584 bytes): índice de 100 entradas de 4 bytes (posición de cada
+# macro, 2 bytes), y desde el byte 400 el cuerpo de cada macro: n.º de eventos
+# (2 bytes) + 6 bytes a 0 + eventos de 4 bytes:
+#   00 00 <tecla> B0 = pulsar      00 00 <tecla> 30 = soltar
+#   <ms lo> <ms hi> 00 50 = esperar (mínimo 10 ms; el oficial pone una tras cada acción)
+# El bloque se rellena hasta múltiplo de 64 (con al menos 1 byte libre) y acaba en AA 55.
+# Una tecla lanza la macro n.º i con la entrada 06 i <modo> <veces> en la tabla de
+# teclas (modos del oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar,
+# 3 mientras se mantiene, 4 al hacer clic).
+CMD_MACROS = 0x19
+CMD_MACROS_DATOS = 0x15
+TAM_MACROS = 0xE00
+INICIO_MACROS = 400
+PAUSA_MACRO_MS = 15         # espera entre pulsaciones dentro de una macro
+
 # Posición (key_index) de cada tecla física, sacada de la distribución oficial.
 POSICION_TECLA = {
     "esc": 1, **{f"f{n}": n + 1 for n in range(1, 13)}, "supr": 119,
@@ -222,6 +241,51 @@ def entrada_tecla(destino):
     return None
 
 
+def eventos_texto(texto):
+    """Eventos de macro (4 bytes cada uno) para escribir un texto (teclado inglés de EE. UU.).
+
+    Devuelve None si hay algún carácter que no se sabe escribir.
+    """
+    con_shift = dict(zip('!@#$%^&*()_+{}|:"~<>?', '1234567890-=[]\\;\'`,./'))
+    espera = PAUSA_MACRO_MS.to_bytes(2, "little") + b"\x00\x50"
+    eventos = []
+    for c in texto:
+        if c == " ":
+            teclas = ["espacio"]
+        elif c.isupper() and c.lower() in CODIGO_TECLA:
+            teclas = ["shift", c.lower()]
+        elif c in con_shift:
+            teclas = ["shift", con_shift[c]]
+        elif c in CODIGO_TECLA:
+            teclas = [c]
+        else:
+            return None
+        codigos = [0xE1 if t == "shift" else CODIGO_TECLA[t] for t in teclas]
+        for codigo in codigos:                       # pulsar (Shift primero)
+            eventos += [bytes([0, 0, codigo, 0xB0]), espera]
+        for codigo in reversed(codigos):             # soltar (Shift el último)
+            eventos += [bytes([0, 0, codigo, 0x30]), espera]
+    return eventos
+
+
+def bloque_macros(macros):
+    """Bloque de macros listo para enviar: lista de macros, cada una una lista de eventos."""
+    bloque = bytearray(TAM_MACROS)
+    posicion = INICIO_MACROS
+    for i, eventos in enumerate(macros):
+        bloque[i * 4:i * 4 + 2] = posicion.to_bytes(2, "little")
+        bloque[posicion:posicion + 2] = len(eventos).to_bytes(2, "little")
+        cuerpo = b"".join(eventos)
+        bloque[posicion + 8:posicion + 8 + len(cuerpo)] = cuerpo
+        posicion += 8 + len(cuerpo)
+    paquetes = posicion // PACKET_SIZE + (1 if posicion % PACKET_SIZE == 0 else 2)
+    tam = paquetes * PACKET_SIZE
+    if tam > TAM_MACROS:
+        return None                                  # no caben
+    bloque[tam - 2:tam] = b"\xaa\x55"
+    return bytes(bloque[:tam])
+
+
 def tabla_teclas(cambios):
     """Tabla de 576 bytes: {posición: 4 bytes}; el resto, sin cambios (ceros)."""
     tabla = bytearray(TAM_TABLA_TECLAS)
@@ -290,9 +354,9 @@ def enviar(dispositivo, paquete):
     dispositivo.send_feature_report(bytes([0x00]) + paquete)
     time.sleep(PAUSA)
     try:
-        dispositivo.get_feature_report(0x00, PACKET_SIZE + 1)
+        return bytes(dispositivo.get_feature_report(0x00, PACKET_SIZE + 1))
     except OSError:
-        pass  # la respuesta solo hace de "acuse de recibo"; si falla, seguimos
+        return None  # la respuesta suele hacer solo de "acuse de recibo"; si falla, seguimos
 
 
 # --- Comandos del programa ---------------------------------------------------
@@ -379,10 +443,25 @@ def cmd_teclas(args):
         return 0
     capa = CMD_TECLAS_FN if args.fn else CMD_TECLAS
     cambios = {}
+    macros = []
     if args.cambios != ["restaurar"]:
         for cambio in args.cambios:
-            origen, _, destino = cambio.lower().partition("=")
-            entrada = entrada_tecla(destino)
+            origen, _, destino = cambio.partition("=")
+            origen = origen.lower()
+            if destino.lower().startswith("texto:"):
+                # Macro que escribe un texto: 06 <n.º de macro> <modo> <veces>
+                # (modo 0 = una vez; modo 1 = N veces; probado en el teclado)
+                eventos = eventos_texto(destino[len("texto:"):])
+                if not eventos:
+                    print(f"No sé escribir '{destino[6:]}' con una macro (solo letras, números, espacio y símbolos básicos).")
+                    return 1
+                macros.append(eventos)
+                if args.veces > 1:
+                    entrada = bytes([0x06, len(macros) - 1, 0x01, args.veces])
+                else:
+                    entrada = bytes([0x06, len(macros) - 1, 0x00, 0x01])
+            else:
+                entrada = entrada_tecla(destino)
             if origen not in POSICION_TECLA or entrada is None:
                 print(f"No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista")
                 return 1
@@ -396,16 +475,48 @@ def cmd_teclas(args):
         return 1
 
     tabla = tabla_teclas(cambios)
+    bloque = bloque_macros(macros) if macros else None
+    if macros and bloque is None:
+        print("Las macros no caben en la memoria del teclado (3,5 KB). Acórtalas.")
+        return 1
     dispositivo = hid.device()
     dispositivo.open_path(info["path"])
     try:
-        enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
-        enviar(dispositivo, paquete_control(capa, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
-        for i in range(0, TAM_TABLA_TECLAS, PACKET_SIZE):
-            # Los trozos de la tabla van seguidos y sin leer respuesta (como el oficial).
-            dispositivo.send_feature_report(bytes([0x00]) + tabla[i:i + PACKET_SIZE])
-            time.sleep(PAUSA)
-        enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        if bloque:
+            # Al cerrar, el teclado responde con la suma de los bytes que ha recibido
+            # (bytes 5-6 de la respuesta). Si no coincide, se repite: la primera vez a
+            # veces se pierde (probablemente mientras borra su memoria de macros).
+            for intento in range(1, 4):
+                enviar(dispositivo, paquete_control(CMD_MACROS, byte8=0x00))
+                enviar(dispositivo, paquete_control(CMD_MACROS_DATOS, byte8=len(bloque) // PACKET_SIZE))
+                time.sleep(0.03)
+                for i in range(0, len(bloque), PACKET_SIZE):
+                    dispositivo.send_feature_report(bytes([0x00]) + bloque[i:i + PACKET_SIZE])
+                    time.sleep(PAUSA)
+                time.sleep(0.03)
+                respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+                recibido = int.from_bytes(respuesta[5:7], "little") if respuesta else None
+                if recibido == sum(bloque) & 0xFFFF:
+                    break
+                print(f"  Las macros no han llegado bien (intento {intento}); repitiendo...")
+            else:
+                print("No consigo guardar las macros en el teclado. Prueba otra vez.")
+                return 1
+        for intento in range(1, 4):
+            enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
+            enviar(dispositivo, paquete_control(capa, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
+            for i in range(0, TAM_TABLA_TECLAS, PACKET_SIZE):
+                # Los trozos de la tabla van seguidos y sin leer respuesta (como el oficial).
+                dispositivo.send_feature_report(bytes([0x00]) + tabla[i:i + PACKET_SIZE])
+                time.sleep(PAUSA)
+            # También aquí el teclado responde con la suma de lo recibido.
+            respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+            if respuesta and int.from_bytes(respuesta[5:7], "little") == sum(tabla) & 0xFFFF:
+                break
+            print(f"  La tabla de teclas no ha llegado bien (intento {intento}); repitiendo...")
+        else:
+            print("No consigo guardar las teclas en el teclado. Prueba otra vez.")
+            return 1
         enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
     finally:
         dispositivo.close()
@@ -485,8 +596,10 @@ def main():
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
     t.add_argument("cambios", nargs="+",
-                   help="origen=destino (p. ej. avpag=b, repag=cmd+c, fin=volumen+), 'restaurar' o 'lista'")
+                   help="origen=destino (p. ej. avpag=b, repag=cmd+c, supr=volumen+, avpag=texto:hola), 'restaurar' o 'lista'")
     t.add_argument("--fn", action="store_true", help="cambiar la capa con Fn (Fn + tecla) en vez de la normal")
+    t.add_argument("--veces", type=int, default=1, choices=range(1, 256), metavar="N",
+                   help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")
     args = parser.parse_args()
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas}

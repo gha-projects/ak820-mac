@@ -10,6 +10,8 @@ python3 ak820.py teclas repag=cmd+a                # combinación
 python3 ak820.py teclas avpag=volumen+ supr=play   # multimedia
 python3 ak820.py teclas supr=clic_der              # ratón
 python3 ak820.py teclas --fn avpag=siguiente       # capa con Fn (Fn + AvPág)
+python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
+python3 ak820.py teclas avpag=texto:hola --veces 3 # ...y lo repite 3 veces
 python3 ak820.py teclas restaurar                  # capa normal de fábrica
 python3 ak820.py teclas --fn restaurar             # capa con Fn de fábrica
 python3 ak820.py teclas lista                      # todos los nombres
@@ -31,6 +33,7 @@ python3 ak820.py teclas lista                      # todos los nombres
 | AvPág → `volumen+` | ✅ |
 | Supr → `clic_der` | ✅ (con el bit USB `02`; `04` es el botón central) |
 | Fn + AvPág → `play` | ✅ |
+| AvPág → macro "hola", 3 veces / "Hola", 2 veces | ✅ |
 | Todas las teclas asignadas a sí mismas | ⚠️ Cmd/Option se cambiaron: el modo Mac deja de intercambiar Win y Alt |
 
 ## De dónde sale
@@ -72,6 +75,31 @@ Cada tecla ocupa los bytes `key_index × 4` a `key_index × 4 + 3`:
 | `01 01 <botones> 00` | Clic de ratón: izq. `01`, der. `02`, central `04`, atrás `08`, adelante `10` |
 | `01 03 <rueda> 00` | Rueda: `01` arriba, `FF` abajo |
 
-Otros tipos que usa el programa oficial y aún no están en `ak820.py`: macros
-(`07 …`, necesitan subir también la macro), `05 02 xx` (funciones internas) y
-`05 03 00 00` (probablemente "desactivar tecla").
+| `06 <macro> <modo> <veces>` | Lanza la macro n.º `<macro>`. Modos del programa oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar, 3 mientras se mantiene, 4 al hacer clic |
+
+Otros tipos del programa oficial que no están en `ak820.py`: `07 a b c` ("Multi-Key",
+hasta 3 teclas a la vez), `05 02 xx` (abrir programa, web o enviar texto: los ejecuta
+el programa del PC, no el teclado) y `05 03 00 00` (probablemente "desactivar tecla").
+
+## Macros
+
+Se suben antes de la tabla de teclas (función `0x42d6f0` del programa oficial):
+
+1. `04 19` → `04 15 … [8]=<n.º de paquetes>` → bloque en paquetes de 64 sin leer
+   respuesta → `04 02`. No lleva `04 18` delante.
+2. Bloque (máx. 3584 bytes): índice de 100 entradas de 4 bytes (bytes 0–1 = posición
+   del cuerpo de cada macro); desde el byte 400, cada macro: n.º de eventos (2 bytes),
+   6 bytes a 0 y eventos de 4 bytes:
+   - `00 00 <tecla> B0` pulsar, `00 00 <tecla> 30` soltar (códigos USB; Shift = `E1`…)
+   - `<ms> <ms> 00 50` esperar (mínimo 10 ms; el oficial pone una tras cada acción)
+   - `00 00 <botón> 90` / `10` pulsar / soltar botón del ratón
+3. Se rellena hasta múltiplo de 64 dejando sitio para `AA 55` en los dos últimos bytes.
+
+**Comprobación:** al `04 02` final el teclado responde con la **suma de los bytes
+recibidos** (bytes 5–6 de la respuesta). Pasa igual con la tabla de teclas. `ak820.py`
+la compara y repite el envío si no coincide: la primera subida de macros a veces se
+pierde (probablemente mientras el teclado borra su memoria).
+
+Los textos se escriben con la distribución inglesa de EE. UU. (letras, números,
+espacio y símbolos básicos). En un Mac con teclado en español, los símbolos pueden
+salir distintos; las letras y números salen bien.
