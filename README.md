@@ -24,11 +24,14 @@ the screen and music mode.
 - **Clock**: sets the time automatically when the keyboard is plugged in.
 - **Settings**: Fn key mode, sleep timer, key response time. Send the setup saved on
   your Mac to the keyboard again, or reset everything to factory.
-- **Help**: what each key does out of the box (Fn shortcuts, F1–F12 in Mac and Windows
-  mode, the knob, the switches, and the **C** and **W** lights: Caps Lock and Win lock),
-  from the [official manual](https://epomaker.com/cdn/shop/files/AK820_PRO_manual.pdf). The Keys tab also shows each key's factory function.
+- **Help**: what each key does out of the box (Fn shortcuts; F1–F12, which in Mac mode
+  work like a Mac's top row; the knob, the switches, and the **C** and **W** lights: Caps
+  Lock and Win lock), from the
+  [official manual](https://epomaker.com/cdn/shop/files/AK820_PRO_manual.pdf). The Keys
+  tab also shows each key's factory function.
 - **Without the cable**: lights, keys, macros, settings and the clock also work through
-  the **2.4 GHz receiver**, and the menu shows the battery level.
+  the **2.4 GHz receiver**. The menu also shows the battery if the receiver reports it
+  (the one it was tested with always answers "unknown"; the keyboard's screen shows it).
 
 It comes as a menu-bar app with its own window, and as a command-line tool.
 
@@ -77,9 +80,8 @@ The first time you use music mode, macOS asks for permission to **record system 
 
 - **The app**: the window opens when you start AK820, with five tabs: **Keys**,
   **Lights**, **Screen**, **Settings** and **Help**. The ⌨︎ icon in the menu bar has quick
-  actions too (lights, music mode, clock, sleep…), and shows the battery when the
-  keyboard is on the 2.4 GHz receiver. While it's busy the icon shows `⌨︎…`, `⌨︎ 45 %` or
-  `⌨︎ ♪`.
+  actions too (lights, music mode, clock, sleep…). While it's busy the icon shows `⌨︎…`,
+  `⌨︎ 45 %` or `⌨︎ ♪`.
 - **The command line** (from the project folder):
 
   ```sh
@@ -93,10 +95,13 @@ The first time you use music mode, macOS asks for permission to **record system 
   python3 ak820.py teclas avpag=cmd+a repag=texto:Hi    # remap keys (see: teclas lista)
   python3 ak820.py teclas restaurar todo               # all keys back to factory
   python3 ak820.py sistema --fn-modo alternar          # settings (see: sistema --help)
-  python3 ak820.py bateria                             # battery (2.4 GHz receiver only)
+  python3 ak820.py bateria                             # battery, if the receiver reports it
   python3 ak820.py reenviar                            # send the saved setup again
   python3 ak820.py fabrica --si                        # everything back to factory
   ```
+
+  Over 2.4 GHz the receiver answers even when the keyboard isn't listening (for example,
+  right after switching it to 2.4G), so check that the change shows on the keyboard.
 
 The keyboard doesn't let you read its configuration back, so the program remembers
 what it last sent in `~/Library/Application Support/ak820-mac/` (keys, colors, lights,

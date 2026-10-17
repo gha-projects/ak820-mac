@@ -173,8 +173,10 @@ through `0x44f5f0` (`WriteFile`). Messages are 32 bytes:
 
 `sum` (byte 31) is the sum of bytes 0–30, modulo 256. The receiver answers with an input
 report whose first 3 bytes repeat the message's; the driver waits up to 20 × 10 ms and
-retries. There's no begin/commit/save: each order stands alone. If the keyboard is
-asleep (battery sleep timer), nothing answers until a key is pressed.
+retries. There's no begin/commit/save: each order stands alone. The echo only means the
+receiver got the message: right after the keyboard is switched to 2.4G (while it's still
+connecting) the receiver echoes everything and the keyboard applies none of it. At other
+times, with the keyboard asleep, nothing answers until a key is pressed.
 
 | Order | Data |
 |---|---|
@@ -185,7 +187,7 @@ asleep (battery sleep timer), nothing answers until a key is pressed.
 | `03` / `0D` one key, normal / Fn | length 4, chunk number = key index, data = the 4-byte slot |
 | `09` macros | the same block padded to a multiple of 28 (`AA 55` at the end); the last chunk's length is `len % 28` |
 | `0B` music spectrum | `[mode, background, background brightness]` + 21 bar heights (rows lit per column, 0–6); the keyboard draws the bars |
-| `20` battery | data `00`; the reply's byte 3 is the battery % (0 = unknown). The wired protocol has no battery read: over the cable only the keyboard's screen shows it |
+| `20` battery | data `00`; the reply's byte 3 is the battery % (0 = unknown; the driver polls every 15 s and ignores 0). On the tested keyboard it was always 0, even while typing over 2.4G. The wired protocol has no battery read: over the cable only the keyboard's screen shows it |
 
 Per-key colors and screen images can't go through the receiver (the driver doesn't
 send them either).

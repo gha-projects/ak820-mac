@@ -891,13 +891,20 @@ def cmd_fabrica(args):
         print(tr("Esto deja el teclado de fábrica: teclas de las dos capas, macros, luces, colores "
                  "tecla a tecla y ajustes (y pone el reloj en hora). Para hacerlo: python3 ak820.py fabrica --si"))
         return 0
+    por_cable = buscar_interfaz() is not None
     bien = enviar_teclas({c: {} for c in CAPAS}, vaciar_macros=True)
-    if buscar_interfaz() is not None:              # los colores solo van por cable
+    if por_cable:                                  # los colores solo van por cable
         bien = enviar_colores(dict(COLORES_DEFECTO, teclas={})) and bien
     bien = main(["luces"] + ARGS_LUCES_FABRICA) == 0 and bien
     bien = main(["sistema", "--fabrica"]) == 0 and bien
     bien = main(["reloj"]) == 0 and bien
-    print(tr("Teclado de fábrica.") if bien else tr("Algo no ha llegado al teclado: prueba otra vez."))
+    if not bien:
+        print(tr("Algo no ha llegado al teclado: prueba otra vez."))
+    elif por_cable:
+        print(tr("Teclado de fábrica."))
+    else:   # el receptor contesta aunque el teclado no le escuche (p. ej. recién pasado a 2.4G)
+        print(tr("Mandado por el receptor 2.4G. Mira el teclado: si las luces son ahora una ola de "
+                 "arcoíris, ha llegado; si no, pulsa una tecla y vuelve a probar."))
     return 0 if bien else 1
 
 
@@ -912,8 +919,13 @@ def cmd_reenviar(_args):
                       "--velocidad", str(luces["velocidad"]), "--direccion", luces["direccion"]]
         bien = main(argumentos + (["--arcoiris"] if luces.get("arcoiris") else [])) == 0 and bien
     bien = enviar_ajustes(cargar_ajustes()) == 0 and bien
-    print(tr("Configuración de este Mac mandada al teclado.") if bien
-          else tr("Algo no ha llegado al teclado: prueba otra vez."))
+    if not bien:
+        print(tr("Algo no ha llegado al teclado: prueba otra vez."))
+    elif buscar_interfaz() is not None:
+        print(tr("Configuración de este Mac mandada al teclado."))
+    else:   # el receptor contesta aunque el teclado no le escuche
+        print(tr("Mandado por el receptor 2.4G. Mira el teclado: si las luces no son las tuyas, "
+                 "pulsa una tecla y vuelve a probar."))
     return 0 if bien else 1
 
 
@@ -927,7 +939,7 @@ def cmd_bateria(_args):
     elif buscar_receptor() is None:
         print(tr("La batería solo se puede leer con el receptor 2.4G."))
     else:
-        print(tr("El receptor no da la batería: pulsa una tecla para despertar el teclado y prueba otra vez."))
+        print(tr("El receptor no da la batería (contesta 0, «no lo sé»). Algunos no la dan nunca: mírala en la pantalla del teclado."))
     return 1
 
 

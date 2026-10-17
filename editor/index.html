@@ -410,23 +410,20 @@ const FABRICA_FN = {
   supr: [tr("Pantalla"), tr("Pantalla: animación ↔ reloj")],
   inicio: [tr("Pantalla"), tr("Apagar o encender la pantalla")],
 };
-// F1–F12 con Fn: lo corto para el dibujo (modo Mac) y [Mac, Windows]
+// F1–F12 en modo Mac, como la fila de arriba de un Mac: sin Fn hacen esto, y con Fn son F1…F12
+// normales (probado en el teclado; la tabla del manual pone «Fn +» porque es la del modo Windows).
 const FABRICA_F_CORTO = ["☀︎−", "☀︎+", "Mission", "Console", "⌨︎☀︎−", "⌨︎☀︎+", "⏮", "⏯", "⏭", "🔇", "🔉", "🔊"];
-const FABRICA_F = [
-  [tr("Brillo de la pantalla −"), tr("Reproductor")], [tr("Brillo de la pantalla +"), tr("Volumen −")],
-  ["Mission Control", tr("Volumen +")], ["Console", tr("Silencio")],
-  [tr("Brillo del teclado −"), tr("Reproducir / parar")], [tr("Brillo del teclado +"), tr("Canción anterior")],
-  [tr("Canción anterior"), tr("Reproducir / pausa")], [tr("Reproducir / pausa"), tr("Canción siguiente")],
-  [tr("Canción siguiente"), tr("Correo")], [tr("Silencio"), tr("Navegador")],
-  [tr("Volumen −"), tr("Mi PC")], [tr("Volumen +"), tr("Calculadora")],
-];
-function fabricaFn(nombre) {
+const FABRICA_F = [tr("Brillo de la pantalla −"), tr("Brillo de la pantalla +"), "Mission Control", "Console",
+                   tr("Brillo del teclado −"), tr("Brillo del teclado +"), tr("Canción anterior"),
+                   tr("Reproducir / pausa"), tr("Canción siguiente"), tr("Silencio"), tr("Volumen −"), tr("Volumen +")];
+// Lo que hace de fábrica una tecla en una capa: [corto para el dibujo ("" = nada), explicación], o undefined.
+function deFabrica(capaTecla, nombre) {
   const f = /^f(\d+)$/.exec(nombre || "");
-  if (f && +f[1] >= 1 && +f[1] <= 12) {
-    const [mac, win] = FABRICA_F[+f[1] - 1];
-    return [FABRICA_F_CORTO[+f[1] - 1], tr("Mac: {mac} · Windows: {win}", { mac, win })];
-  }
-  return FABRICA_FN[nombre];
+  const n = f ? +f[1] : 0;
+  if (n >= 1 && n <= 12)
+    return capaTecla === "fn" ? ["", tr("la tecla {tecla} normal", { tecla: "F" + n })]
+                              : [FABRICA_F_CORTO[n - 1], FABRICA_F[n - 1]];
+  return capaTecla === "fn" ? FABRICA_FN[nombre] : undefined;
 }
 
 // --- Comunicación con el servidor ----------------------------------------------------
@@ -469,7 +466,7 @@ function dibujarTeclado() {
     b.append(et);
     if (bloqueada(t)) {
       b.disabled = true;
-      const fabrica = capa === "fn" && fabricaFn(t.nombre);
+      const fabrica = deFabrica(capa, t.nombre);
       b.title = fabrica ? tr("Fn + {tecla}: {funcion} (no se puede cambiar)", { tecla: tr(t.etiqueta), funcion: fabrica[1] })
               : t.nombre ? tr("Esta tecla no se puede cambiar en la capa Fn") : tr("La tecla Fn no se puede cambiar");
     } else {
@@ -487,12 +484,14 @@ function dibujarTeclado() {
         a.textContent = resumen(asig);
         b.append(a);
         b.title = describir(asig);
-      } else if (capa === "fn" && fabricaFn(t.nombre)) {
-        const [corto, largo] = fabricaFn(t.nombre);
-        const f = document.createElement("span");
-        f.className = "fabrica";
-        f.textContent = corto;
-        b.append(f);
+      } else if (deFabrica(capa, t.nombre)) {
+        const [corto, largo] = deFabrica(capa, t.nombre);
+        if (corto) {
+          const f = document.createElement("span");
+          f.className = "fabrica";
+          f.textContent = corto;
+          b.append(f);
+        }
         b.title = tr("De fábrica: {funcion}", { funcion: largo });
       }
       if (!igual(asig, guardado[capa][t.nombre])) b.classList.add("pendiente");
@@ -659,7 +658,7 @@ function dibujarPanel() {
   const ahora = document.createElement("p");
   ahora.className = "ahora";
   const enTeclado = guardado[capa][elegida];
-  const fabrica = !enTeclado && capa === "fn" && fabricaFn(elegida);
+  const fabrica = !enTeclado && deFabrica(capa, elegida);
   ahora.textContent = tr("En el teclado: ") + (fabrica ? tr("de fábrica, {funcion}", { funcion: fabrica[1] }) : describir(enTeclado)) +
     (igual(actual[capa][elegida], enTeclado) ? "" : tr(" · Sin enviar: ") + describir(actual[capa][elegida]));
   const tipos = document.createElement("div");
@@ -1374,11 +1373,11 @@ function dibujarAyuda() {
   titulo(tr("Atajos con Fn de fábrica"));
   const etiquetas = Object.fromEntries(distribucion.filter((t) => t.nombre).map((t) => [t.nombre, tr(t.etiqueta || "Espacio")]));
   tabla(null, Object.entries(FABRICA_FN).map(([nombre, [, largo]]) => ["Fn + " + (etiquetas[nombre] || nombre), largo]));
-  tabla([tr("Atajo"), "Mac", "Windows"], FABRICA_F.map(([mac, win], i) => [`Fn + F${i + 1}`, mac, win]));
-  const nota = document.createElement("p");
-  nota.className = "nota";
-  nota.textContent = tr("Lo que pongas en la capa Fn de la pestaña Teclas sustituye a estos atajos. Los que salen en gris en el dibujo no se pueden cambiar. Según el manual del AK820 Pro.");
-  ayuda.append(nota);
+  titulo(tr("F1–F12 en modo Mac"));
+  const nota = (texto) => { const p = document.createElement("p"); p.className = "nota"; p.textContent = texto; ayuda.append(p); };
+  nota(tr("Como en el teclado de un Mac: sin Fn hacen lo que pone aquí, y con Fn son F1–F12 normales. En modo Windows es al revés."));
+  tabla(null, FABRICA_F.map((funcion, i) => [`F${i + 1}`, funcion]));
+  nota(tr("Lo que pongas en la pestaña Teclas sustituye a todo esto: F1–F12 están en la capa normal, y los atajos, en la capa Fn. Lo que sale en gris en el dibujo no se puede cambiar. Según el manual del AK820 Pro."));
 }
 
 // --- Volver a mandar lo guardado / dejar de fábrica ------------------------------------------------
@@ -1395,7 +1394,8 @@ async function reinicio(ruta, textoHecho) {
       coloresGuardados = r.colores; colores = copia(r.colores);
       ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes);
       pantalla = r.pantalla;
-      estado.textContent = textoHecho;
+      // Por 2.4G el receptor no confirma que el teclado lo reciba: se enseña lo que dice ak820.py.
+      estado.textContent = r.conexion === "2.4g" ? r.mensaje.split("\n").pop() : textoHecho;
       dibujarTeclado(); dibujarLuces(); dibujarPantalla(); dibujarAjustes();
     } else {
       estado.textContent = "";

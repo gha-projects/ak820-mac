@@ -24,12 +24,14 @@ se usa: teclas, macros, luces, la pantalla y el modo música.
 - **Reloj**: se pone en hora solo al conectar el teclado.
 - **Ajustes**: modo de la tecla Fn, reposo y tiempo de respuesta de las teclas. Volver
   a mandar al teclado lo que tiene guardado el Mac, o dejarlo todo de fábrica.
-- **Ayuda**: qué hace cada tecla de fábrica (los atajos con Fn, F1–F12 en modo Mac y
-  Windows, la rueda, los interruptores y las luces **C** y **W**: Bloq Mayús y bloqueo de
-  Win), sacado del [manual oficial](https://epomaker.com/cdn/shop/files/AK820_PRO_manual.pdf). La pestaña Teclas también enseña la función de
-  fábrica de cada tecla.
+- **Ayuda**: qué hace cada tecla de fábrica (los atajos con Fn; F1–F12, que en modo Mac
+  funcionan como la fila de arriba de un Mac; la rueda, los interruptores y las luces
+  **C** y **W**: Bloq Mayús y bloqueo de Win), sacado del
+  [manual oficial](https://epomaker.com/cdn/shop/files/AK820_PRO_manual.pdf). La pestaña
+  Teclas también enseña la función de fábrica de cada tecla.
 - **Sin cable**: luces, teclas, macros, ajustes y la hora funcionan también con el
-  **receptor 2.4G**, y el menú enseña la batería.
+  **receptor 2.4G**. El menú también enseña la batería si el receptor la da (el de las
+  pruebas siempre contesta «no lo sé»; la pantalla del teclado sí la enseña).
 
 Es una app de la barra de menús con su propia ventana, y también un programa de terminal.
 
@@ -79,8 +81,7 @@ sistema** (solo el audio, no la pantalla).
 
 - **La app**: al abrir AK820 sale su ventana, con cinco pestañas: **Teclas**, **Luces**,
   **Pantalla**, **Ajustes** y **Ayuda**. El icono ⌨︎ de la barra de menús tiene accesos
-  rápidos (luces, modo música, reloj, reposo…) y, con el receptor 2.4G, enseña la
-  batería. Mientras trabaja, el icono pasa a `⌨︎…`,
+  rápidos (luces, modo música, reloj, reposo…). Mientras trabaja, el icono pasa a `⌨︎…`,
   `⌨︎ 45 %` o `⌨︎ ♪`, y lo que hace queda en `~/Library/Logs/ak820-app.log`.
 - **La terminal** (desde la carpeta del proyecto):
 
@@ -95,10 +96,13 @@ sistema** (solo el audio, no la pantalla).
   python3 ak820.py teclas avpag=cmd+a repag=texto:Hola  # cambiar teclas (ver: teclas lista)
   python3 ak820.py teclas restaurar todo               # todas las teclas de fábrica
   python3 ak820.py sistema --fn-modo alternar          # ajustes (ver: sistema --help)
-  python3 ak820.py bateria                             # batería (solo con el receptor 2.4G)
+  python3 ak820.py bateria                             # batería, si el receptor la da
   python3 ak820.py reenviar                            # volver a mandar lo guardado
   python3 ak820.py fabrica --si                        # todo de fábrica
   ```
+
+  Por 2.4G el receptor contesta aunque el teclado no le escuche (por ejemplo, nada más
+  pasarlo a 2.4G), así que comprueba que el cambio se ve en el teclado.
 
 El teclado no deja leer su configuración, así que el programa recuerda lo último que le
 ha mandado en `~/Library/Application Support/ak820-mac/` (teclas, colores, luces, ajustes

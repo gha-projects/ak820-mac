@@ -518,7 +518,7 @@ class Manejador(BaseHTTPRequestHandler):
             bien, mensaje = editor.orden(["fabrica", "--si"] if ruta == "/api/fabrica" else ["reenviar"])
             return self.resultado(bien, mensaje, config=ak820.cargar_teclas(), luces=ak820.cargar_luces(),
                                   colores=ak820.cargar_colores(), ajustes=ajustes_para_pagina(),
-                                  pantalla=pantalla_para_pagina())
+                                  pantalla=pantalla_para_pagina(), conexion=conexion())
         if ruta == "/api/apagar":
             bien, mensaje = editor.orden(["luces", "apagado"])
             return self.resultado(bien, mensaje)

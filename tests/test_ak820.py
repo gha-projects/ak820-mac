@@ -419,8 +419,11 @@ class BateriaPorReceptor(ConTecladoFalso):
         self.assertEqual(self.rx.tramas[-1][:4].hex(" "), "20 01 00 00")
 
     def test_fabrica_sin_colores(self):
-        self.assertEqual(self.orden("fabrica", "--si")[0], 0)
+        codigo, salida = self.orden("fabrica", "--si")
+        self.assertEqual(codigo, 0)
         self.assertEqual([o for o in dict.fromkeys(self.rx.ordenes())], [0x09, 0x10, 0x12, 0x05, 0x07, 0x0C])
+        # el receptor contesta aunque el teclado no le escuche: no se puede decir «de fábrica» sin más
+        self.assertIn("Mira el teclado", salida.splitlines()[-1])
 
 
 class ReceptorSinTeclado(ConTecladoFalso):
