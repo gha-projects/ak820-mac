@@ -20,6 +20,7 @@ import sys
 import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 import ak820
 
@@ -90,6 +91,12 @@ def conexion():
     except Exception:                              # hidapi puede fallar un instante al (des)conectar
         pass
     return None
+
+
+def pantalla_para_pagina():
+    """Qué se ve en la pantalla y cuál fue la última imagen subida (sin la ruta del archivo)."""
+    info = ak820.info_pantalla()
+    return {"modo": info["modo"], "nombre": info["nombre"], "fecha": info["fecha"], "hay_vista": bool(info["vista"])}
 
 
 def ajustes_para_pagina():
@@ -358,7 +365,9 @@ class Manejador(BaseHTTPRequestHandler):
         return self.headers.get("Host") in (f"127.0.0.1:{puerto}", f"localhost:{puerto}")
 
     def clave_valida(self):
-        return secrets.compare_digest(self.headers.get("X-Clave", ""), self.server.editor.clave)
+        # La copia de la pantalla va en un <img>, que no puede mandar cabeceras: ahí va en la dirección.
+        clave = self.headers.get("X-Clave") or parse_qs(urlparse(self.path).query).get("clave", [""])[0]
+        return secrets.compare_digest(clave, self.server.editor.clave)
 
     # --- Respuestas ------------------------------------------------------------
     def responder(self, codigo, cuerpo, tipo="application/json; charset=utf-8"):
@@ -390,8 +399,14 @@ class Manejador(BaseHTTPRequestHandler):
                 distribucion = json.load(f)
             return self.responder(200, {
                 "distribucion": distribucion, "config": ak820.cargar_teclas(), "catalogo": catalogo(),
-                "luces": ak820.cargar_luces(), "colores": ak820.cargar_colores(), "pantalla": ak820.modo_pantalla(),
+                "luces": ak820.cargar_luces(), "colores": ak820.cargar_colores(), "pantalla": pantalla_para_pagina(),
                 "ajustes": ajustes_para_pagina(), "conexion": conexion(), "musica": editor.musica_modo})
+        if ruta == "/api/pantalla-vista":
+            vista = ak820.info_pantalla()["vista"]
+            if not vista:
+                return self.responder(404, {"error": "no hay"})
+            with open(vista, "rb") as f:
+                return self.responder(200, f.read(), "image/gif" if vista.endswith(".gif") else "image/png")
         if ruta == "/api/conexion":
             return self.responder(200, {"conexion": conexion(), "ocupado": editor.candado.locked(),
                                         "musica": editor.musica_modo, "musica_error": editor.musica_error,
@@ -414,7 +429,7 @@ class Manejador(BaseHTTPRequestHandler):
             if not 0 < largo <= MAX_IMAGEN:
                 return self.resultado(False, "La imagen es demasiado grande (máximo 30 MB).")
             bien, mensaje = editor.imagen(self.rfile.read(largo))
-            return self.resultado(bien, mensaje, pantalla=ak820.modo_pantalla())
+            return self.resultado(bien, mensaje, pantalla=pantalla_para_pagina())
 
         if not tipo.startswith("application/json"):
             return self.responder(415, {"error": "se espera JSON"})
@@ -461,7 +476,7 @@ class Manejador(BaseHTTPRequestHandler):
             return self.resultado(bien, mensaje)
         if ruta == "/api/reloj":
             bien, mensaje = editor.orden(["reloj"])
-            return self.resultado(bien, mensaje, pantalla=ak820.modo_pantalla())
+            return self.resultado(bien, mensaje, pantalla=pantalla_para_pagina())
         if ruta == "/api/sistema":
             try:
                 argumentos = args_sistema(datos.get("ajustes"))

@@ -1075,7 +1075,10 @@ async function enviarColores() {
 }
 
 // --- Pantalla ----------------------------------------------------------------------------------
-let modoPantalla = "reloj", archivoElegido = null, enviandoImagen = false;
+let pantalla = { modo: "reloj", nombre: null, fecha: null, hay_vista: false };
+let archivoElegido = null, enviandoImagen = false;
+const fechaCorta = (iso) => iso ? new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short",
+  hour: "2-digit", minute: "2-digit" }) : "";
 
 function prepararPantalla() {
   const archivo = document.getElementById("archivo");
@@ -1101,19 +1104,32 @@ function elegirArchivo(archivo) {
   const img = document.getElementById("vista-img");
   if (img.src) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(archivo);
+  delete img.dataset.guardada;
   avisar("", "");
   dibujarPantalla();
 }
 
 function dibujarPantalla() {
+  // En el recuadro: lo elegido para enviar o, si no, lo que hay ahora en la pantalla.
   const img = document.getElementById("vista-img");
-  img.hidden = !archivoElegido;
+  const verGuardada = !archivoElegido && pantalla.modo === "imagen" && pantalla.hay_vista;
+  if (verGuardada) {
+    const direccion = `/api/pantalla-vista?clave=${encodeURIComponent(CLAVE)}&v=${encodeURIComponent(pantalla.fecha || "")}`;
+    if (img.dataset.guardada !== direccion) {
+      if (img.src.startsWith("blob:")) URL.revokeObjectURL(img.src);
+      img.src = direccion;
+      img.dataset.guardada = direccion;
+    }
+  }
+  img.hidden = !archivoElegido && !verGuardada;
   const reloj = document.getElementById("vista-reloj");
-  reloj.hidden = !!archivoElegido;
+  reloj.hidden = !img.hidden;
   reloj.textContent = new Date().toTimeString().slice(0, 5);
+  const subida = pantalla.nombre ? `${pantalla.nombre} (${fechaCorta(pantalla.fecha)})` : "";
   document.getElementById("estado-pantalla").textContent =
-    (modoPantalla === "imagen" ? "Ahora enseña una imagen o un GIF." : "Ahora enseña el reloj.") +
-    (archivoElegido ? ` Elegido: ${archivoElegido.name}.` : "");
+    (pantalla.modo === "imagen" ? `Ahora enseña ${subida || "una imagen o un GIF"}.`
+                               : "Ahora enseña el reloj." + (subida ? ` Última imagen subida: ${subida}.` : "")) +
+    (archivoElegido ? ` Elegido para enviar: ${archivoElegido.name}.` : "");
   document.getElementById("solo-cable-pantalla").hidden = modoConexion !== "2.4g";
   document.getElementById("enviar-imagen").disabled = !archivoElegido || enviandoImagen || modoConexion === "2.4g";
   document.getElementById("volver-reloj").disabled = enviandoImagen;
@@ -1134,7 +1150,7 @@ async function enviarImagen() {
     if (r.status === 403) throw new Error("Esta ventana es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎.");
     const datos = await r.json();
     if (datos.ok) {
-      modoPantalla = datos.pantalla;
+      pantalla = datos.pantalla;
       archivoElegido = null;
       avisar("La imagen ya está en la pantalla del teclado.", "bien");
     } else {
@@ -1153,7 +1169,7 @@ async function volverAlReloj() {
   try {
     const r = await api("/api/reloj", {});
     if (r.ok) {
-      modoPantalla = r.pantalla;
+      pantalla = r.pantalla;
       archivoElegido = null;
       avisar("Reloj en hora y a la vista.", "bien");
     } else {
@@ -1246,7 +1262,7 @@ function aplicarEstado(r, primeraVez) {
   }
   if (!enviandoLuces) { ponerLuces(r.luces); ultimoEfectoEnviado = r.luces ? r.luces.efecto : null; }
   if (!coloresGuardados || !hayCambiosColores()) { coloresGuardados = r.colores; colores = copia(r.colores); }
-  if (!enviandoImagen) modoPantalla = r.pantalla;
+  if (!enviandoImagen) pantalla = r.pantalla;
   if (!ajustes || igual(ajustes, ajustesGuardados)) { ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes); }
   ponerConexion(r.conexion);
   ponerEstadoMusica(r.musica, "");

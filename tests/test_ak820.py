@@ -143,6 +143,7 @@ class ConTecladoFalso(unittest.TestCase):
                        mock.patch.object(ak820, "TECLAS_GUARDADAS", os.path.join(carpeta.name, "teclas.json")),
                        mock.patch.object(ak820, "AJUSTES_GUARDADOS", os.path.join(carpeta.name, "sistema.json")),
                        mock.patch.object(ak820, "PANTALLA_GUARDADA", os.path.join(carpeta.name, "pantalla.json")),
+                       mock.patch.object(ak820, "PANTALLA_VISTA", os.path.join(carpeta.name, "pantalla-vista")),
                        mock.patch.object(ak820, "LUCES_GUARDADAS", os.path.join(carpeta.name, "luces.json")),
                        mock.patch.object(ak820, "COLORES_GUARDADOS", os.path.join(carpeta.name, "colores.json"))):
             parche.start()
@@ -489,7 +490,24 @@ class OtrasOrdenes(ConTecladoFalso):
         self.assertEqual((aviso[2], aviso[8], aviso[9]), (1, 9, 0))       # hueco 1, 9 bloques
         self.assertEqual(len(self.teclado.bloques), 9)
         self.assertTrue(all(len(b) == 4097 for b in self.teclado.bloques))  # 0 + 4096
-        self.assertEqual(ak820.modo_pantalla(), "imagen")
+        info = ak820.info_pantalla()
+        self.assertEqual((info["modo"], info["nombre"]), ("imagen", "foto.png"))
+        from PIL import Image
+        with Image.open(info["vista"]) as vista:                       # la copia, 128x128
+            self.assertEqual(vista.size, (128, 128))
+
+    def test_gif_guarda_su_copia_animada(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as carpeta:
+            ruta = os.path.join(carpeta, "anim.gif")
+            cuadros = [Image.new("RGB", (200, 100), c) for c in ("red", "blue", "green")]
+            cuadros[0].save(ruta, save_all=True, append_images=cuadros[1:], duration=[80, 20, 900], loop=0)
+            self.assertEqual(self.orden("imagen", ruta)[0], 0)
+        self.assertEqual(self.orden("reloj")[0], 0)
+        info = ak820.info_pantalla()
+        self.assertEqual((info["modo"], info["nombre"]), ("reloj", "anim.gif"))   # se sigue recordando
+        with Image.open(info["vista"]) as vista:
+            self.assertEqual((vista.n_frames, vista.size), (3, (128, 128)))
 
 
 # --- App y editor -------------------------------------------------------------------
@@ -602,11 +620,16 @@ class Editor(ConTecladoFalso):
         Image.new("RGB", (64, 64), "red").save(png, "PNG")
         respuesta = json.loads(self.pedir("/api/imagen", crudo=png.getvalue())[1])
         self.assertTrue(respuesta["ok"], respuesta)
-        self.assertEqual((len(self.teclado.bloques), respuesta["pantalla"]), (9, "imagen"))
+        self.assertEqual((len(self.teclado.bloques), respuesta["pantalla"]["modo"]), (9, "imagen"))
+        self.assertTrue(respuesta["pantalla"]["hay_vista"])
         malo = json.loads(self.pedir("/api/imagen", crudo=b"esto no es una imagen")[1])
         self.assertFalse(malo["ok"])
         respuesta = json.loads(self.pedir("/api/reloj", {})[1])
-        self.assertEqual((respuesta["ok"], respuesta["pantalla"]), (True, "reloj"))
+        self.assertEqual((respuesta["ok"], respuesta["pantalla"]["modo"]), (True, "reloj"))
+        self.assertEqual(self.pedir("/api/pantalla-vista", clave=False)[0], 403)
+        # la clave también vale en la dirección (para <img>)
+        codigo, cuerpo = self.pedir(f"/api/pantalla-vista?clave={self.editor.clave}", clave=False)
+        self.assertEqual((codigo, cuerpo[:4]), (200, b"\x89PNG"))
         conexion = json.loads(self.pedir("/api/conexion")[1])
         self.assertEqual((conexion["conexion"], conexion["ocupado"]), ("cable", False))
 

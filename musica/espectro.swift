@@ -8,7 +8,8 @@
 //
 // Se para al cerrarse su entrada estándar (cuando termina quien lo lanzó).
 //
-//     swiftc -O -swift-version 5 musica/espectro.swift -o musica/espectro
+// ak820.py lo compila solo (ruta_espectro); a mano:
+//     swiftc -O -swift-version 5 -target arm64-apple-macos14.2 musica/espectro.swift -o musica/espectro
 
 import Accelerate
 import CoreAudio

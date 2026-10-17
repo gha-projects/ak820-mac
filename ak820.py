@@ -144,6 +144,9 @@ TECLAS_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/t
 # Lo último que se mandó a la pantalla ("reloj" o "imagen"): poner la hora vuelve a enseñar
 # el reloj, así que la app solo la pone sola si la pantalla ya estaba en el reloj.
 PANTALLA_GUARDADA = os.path.expanduser("~/Library/Application Support/ak820-mac/pantalla.json")
+# Copia de lo último que se subió a la pantalla (el teclado no deja leerlo): el mismo recorte
+# de 128x128, en PNG si es una imagen fija o en GIF con sus tiempos si es animado.
+PANTALLA_VISTA = os.path.expanduser("~/Library/Application Support/ak820-mac/pantalla-vista")
 # Colores tecla a tecla (efecto "personal", 0x80), sacado de la función 0x44ba10 del programa
 # oficial: 04 18 → 04 23 [8]=9 → 576 bytes como la tabla de teclas, con [n.º, R, G, B] en el
 # hueco de cada tecla (su light_index, que coincide con key_index) → 04 02 → 04 F0. Antes se
@@ -710,8 +713,11 @@ def ruta_espectro():
     print("Compilando el programa que escucha el sonido (solo la primera vez)...")
     sdks = sorted((os.path.join(d, n) for d in ["/Library/Developer/CommandLineTools/SDKs"]
                    if os.path.isdir(d) for n in os.listdir(d)), reverse=True)
+    # Que funcione desde macOS 14.2 (los taps de audio), no solo en la versión de este Mac.
+    destino_macos = f"{'arm64' if os.uname().machine == 'arm64' else 'x86_64'}-apple-macos14.2"
     for sdk in [None] + sdks:                     # el SDK por defecto puede ser más nuevo que swiftc
-        orden = ["swiftc", "-O", "-swift-version", "5", fuente, "-o", destino] + (["-sdk", sdk] if sdk else [])
+        orden = (["swiftc", "-O", "-swift-version", "5", "-target", destino_macos, fuente, "-o", destino]
+                 + (["-sdk", sdk] if sdk else []))
         if subprocess.run(orden, capture_output=True).returncode == 0:
             return destino
     return None
@@ -978,13 +984,47 @@ def cmd_sistema(args):
     return 0
 
 
-def modo_pantalla():
-    """'reloj' o 'imagen': lo último que se mandó a la pantalla desde este Mac."""
+def info_pantalla():
+    """Lo último que se mandó a la pantalla desde este Mac:
+    {"modo": "reloj" | "imagen", "nombre", "fecha", "vista": ruta de la copia o None}."""
+    info = {"modo": "reloj", "nombre": None, "fecha": None, "vista": None}
     try:
         with open(PANTALLA_GUARDADA) as f:
-            return "imagen" if json.load(f).get("modo") == "imagen" else "reloj"
+            guardado = json.load(f)
+        info["modo"] = "imagen" if guardado.get("modo") == "imagen" else "reloj"
+        info["nombre"], info["fecha"] = guardado.get("nombre"), guardado.get("fecha")
+        vista = guardado.get("vista")
+        if vista and os.path.exists(vista):
+            info["vista"] = vista
     except (OSError, ValueError, AttributeError):
-        return "reloj"
+        pass
+    return info
+
+
+def modo_pantalla():
+    """'reloj' o 'imagen': lo último que se mandó a la pantalla desde este Mac."""
+    return info_pantalla()["modo"]
+
+
+def guardar_vista(imagen):
+    """Guarda la copia de lo subido (128x128, como lo enseña el teclado) y la recuerda."""
+    from PIL import ImageOps, ImageSequence
+    if getattr(imagen, "is_animated", False):
+        cuadros, tiempos = [], []
+        for n, cuadro in enumerate(ImageSequence.Iterator(imagen)):   # (es el mismo objeto cada vez)
+            if n == MAX_FOTOGRAMAS:
+                break
+            cuadros.append(ImageOps.fit(cuadro.convert("RGB"), (PANTALLA, PANTALLA)))
+            tiempos.append(min(max(cuadro.info.get("duration") or 100, 30), 500))
+        ruta = PANTALLA_VISTA + ".gif"
+        cuadros[0].save(ruta, save_all=True, append_images=cuadros[1:], duration=tiempos, loop=0)
+    else:
+        ruta = PANTALLA_VISTA + ".png"
+        ImageOps.fit(imagen.convert("RGB"), (PANTALLA, PANTALLA)).save(ruta)
+    for vieja in (PANTALLA_VISTA + ".gif", PANTALLA_VISTA + ".png"):
+        if vieja != ruta and os.path.exists(vieja):
+            os.remove(vieja)
+    return ruta
 
 
 def cargar_luces():
@@ -997,10 +1037,16 @@ def cargar_luces():
         return None
 
 
-def guardar_modo_pantalla(modo):
+def guardar_modo_pantalla(modo, vista=None, nombre=None):
+    """Recuerda qué se ve en la pantalla. Al volver al reloj se sigue recordando la última
+    imagen subida (el teclado la guarda en su memoria)."""
+    info = info_pantalla()
     os.makedirs(os.path.dirname(PANTALLA_GUARDADA), exist_ok=True)
+    datos = {"modo": modo, "vista": info["vista"], "nombre": info["nombre"], "fecha": info["fecha"]}
+    if vista:
+        datos.update(vista=vista, nombre=nombre, fecha=datetime.datetime.now().isoformat(timespec="seconds"))
     with open(PANTALLA_GUARDADA, "w") as f:
-        json.dump({"modo": modo}, f)
+        json.dump(datos, f)
 
 
 def cargar_teclas():
@@ -1268,7 +1314,11 @@ def cmd_imagen(args):
     finally:
         control.close()
         datos.close()
-    guardar_modo_pantalla("imagen")
+    try:
+        vista = guardar_vista(imagen)
+    except Exception:                                   # sin copia, pero la imagen ya está subida
+        vista = None
+    guardar_modo_pantalla("imagen", vista, "prueba" if args.archivo == "prueba" else os.path.basename(args.archivo))
     print("Imagen enviada. Mira la pantalla del teclado.")
     print("Para volver al reloj: python3 ak820.py reloj")
     return 0
