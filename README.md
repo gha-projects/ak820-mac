@@ -57,8 +57,8 @@ Si `pip install` falla, instala [Homebrew](https://brew.sh) y ejecuta `brew inst
 ## App de la barra de menús
 
 Para usarlo sin la terminal: un icono ⌨︎ arriba a la derecha con el reloj, las luces
-(efecto, color y brillo), la imagen o GIF de la pantalla, el reposo y restaurar las
-teclas de fábrica.
+(efecto, color y brillo), la imagen o GIF de la pantalla, el reposo, los ajustes del
+sistema y el **editor de teclas**.
 
 1. La primera vez, instala lo que necesita (con el entorno de Python ya preparado):
    ```
@@ -73,8 +73,17 @@ teclas de fábrica.
 Mientras trabaja, el icono pasa a **⌨︎…** (o al % enviado, con las imágenes). Cuando
 acaba bien sale **⌨︎ ✓** unos segundos; si algo falla, una ventana explica qué pasa. Lo
 que va haciendo se guarda en `~/Library/Logs/ak820-app.log`. Como siempre, el teclado
-tiene que estar **por cable** (y en modo cable, no en Bluetooth ni 2.4G). Para el remapeo de teclas y las macros sigue haciendo falta la
-terminal (`python3 ak820.py teclas ...`).
+tiene que estar **por cable** (y en modo cable, no en Bluetooth ni 2.4G).
+
+### Editor de teclas
+
+**Teclas → Editor de teclas…** abre en el navegador un dibujo del teclado: pinchas una
+tecla, eliges qué hace (otra tecla o un atajo, multimedia, ratón, escribir un texto o
+varias teclas a la vez), en la capa normal o en la de Fn, y pulsas **Enviar al teclado**.
+Sin la app: `python3 ak820_editor.py`.
+
+La página solo funciona en este Mac (`127.0.0.1`) y con la clave que pone la app en la
+dirección, así que ninguna otra web puede tocar el teclado.
 
 ## Teclas de Mac (la 🌐)
 
@@ -115,12 +124,19 @@ python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "
 python3 ak820.py teclas avpag=texto:hola --modo mantener  # se repite mientras se mantiene
                                                    # (también alternar y paso)
 python3 ak820.py teclas avpag=multi:a+s            # "Multi-Key": hasta 3 teclas a la vez
-python3 ak820.py teclas restaurar                  # todas de fábrica (añade --fn para esa capa)
+python3 ak820.py teclas avpag=defecto              # esa tecla vuelve a ser la de fábrica
+python3 ak820.py teclas                            # ver las teclas cambiadas
+python3 ak820.py teclas restaurar                  # la capa normal de fábrica (--fn: la de Fn)
+python3 ak820.py teclas restaurar todo             # las dos capas de fábrica
 python3 ak820.py teclas lista                      # todos los nombres
 ```
 
-Cada vez se manda la tabla entera de la capa, así que pon todos los cambios en la misma
-orden. Detalles en [docs/teclas.md](docs/teclas.md).
+Los cambios se suman a los que ya había: el programa recuerda lo que tiene el teclado
+(en `~/Library/Application Support/ak820-mac/teclas.json`, porque el teclado no deja
+leerlo) y cada vez manda las dos capas y todas las macros. Es lo mismo que usa el editor,
+así que se puede mezclar uno y otro. Si el teclado se resetea por otro lado,
+`python3 ak820.py teclas reenviar` le vuelve a mandar lo guardado. Detalles en
+[docs/teclas.md](docs/teclas.md).
 
 ## Imagen en la pantalla
 

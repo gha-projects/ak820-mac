@@ -120,6 +120,14 @@ TAM_MACROS = 0xE00
 INICIO_MACROS = 400
 PAUSA_MACRO_MS = 15         # espera entre pulsaciones dentro de una macro
 
+# El teclado no deja leer sus teclas, así que se recuerdan las asignaciones de las dos
+# capas en TECLAS_GUARDADAS ({"normal": {tecla: asignación}, "fn": {...}}). Cada envío
+# manda las dos capas y todas las macros juntas: el bloque de macros es uno solo para
+# las dos capas, y mandar solo una capa borraría las macros de la otra.
+TECLAS_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/teclas.json")
+CAPAS = {"normal": CMD_TECLAS, "fn": CMD_TECLAS_FN}
+NOMBRE_CAPA = {"normal": "capa normal", "fn": "capa con Fn"}
+
 # Posición (key_index) de cada tecla física, sacada de la distribución oficial.
 POSICION_TECLA = {
     "esc": 1, **{f"f{n}": n + 1 for n in range(1, 13)}, "supr": 119,
@@ -137,9 +145,13 @@ POSICION_TECLA = {
 for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "delete": "supr",
                       "backspace": "borrar", "capslock": "bloqmayus", "space": "espacio"}.items():
     POSICION_TECLA[alias] = POSICION_TECLA[nombre]
+# Nombre principal de cada posición (el primero; los alias van después).
+NOMBRE_TECLA = {}
+for nombre, indice in POSICION_TECLA.items():
+    NOMBRE_TECLA.setdefault(indice, nombre)
 # Teclas que no se pueden cambiar en la capa con Fn: las que el programa oficial no deja
 # (fnlayer_disable) y Supr, que el teclado ignora (probado: Fn + Supr = b no hace nada).
-NO_CAMBIABLES_FN = {POSICION_TECLA[t] for t in ("esc", "inicio", "win", "supr")}
+NO_CAMBIABLES_FN = {POSICION_TECLA[t] for t in ("esc", "borrar", "inicio", "\\", "win", "supr")}
 
 # Modificadores (bits del primer byte de una combinación, estándar USB).
 MODIFICADOR = {"ctrl": 0x01, "shift": 0x02, "option": 0x04, "alt": 0x04, "cmd": 0x08, "win": 0x08,
@@ -581,6 +593,165 @@ def cmd_sistema(args):
     return 0
 
 
+def cargar_teclas():
+    """Las asignaciones de teclas enviadas por última vez (vacías = todo de fábrica)."""
+    config = {capa: {} for capa in CAPAS}
+    try:
+        with open(TECLAS_GUARDADAS) as f:
+            guardado = json.load(f)
+        for capa in CAPAS:
+            config[capa].update(guardado.get(capa) or {})
+    except (OSError, ValueError, AttributeError):
+        pass
+    return config
+
+
+def guardar_teclas(config):
+    os.makedirs(os.path.dirname(TECLAS_GUARDADAS), exist_ok=True)
+    with open(TECLAS_GUARDADAS, "w") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+def entrada_asignacion(asignacion, macros):
+    """Los 4 bytes de una asignación ({"destino": ..., "modo": ..., "veces": ...}).
+
+    Si es una macro, añade sus eventos a 'macros' (la lista común de las dos capas).
+    Lanza ValueError con un mensaje para el usuario si no se entiende.
+    """
+    destino = str(asignacion.get("destino", ""))
+    if destino.lower() == "doble_clic":
+        eventos = eventos_doble_clic()
+        modo, veces = "una", 1
+    elif destino.lower().startswith("texto:"):
+        texto = destino[len("texto:"):]
+        eventos = eventos_texto(texto) if texto else None
+        if not eventos:
+            raise ValueError(f"No sé escribir '{texto}' con una macro "
+                             "(solo letras sin tilde, números, espacio y símbolos básicos).")
+        modo = asignacion.get("modo") or "una"
+        veces = int(asignacion.get("veces") or 1)
+        if modo not in MODO_MACRO or not 1 <= veces <= 255:
+            raise ValueError(f"Modo o repeticiones no válidos en '{destino}'.")
+    else:
+        entrada = entrada_tecla(destino)
+        if entrada is None:
+            raise ValueError(f"No entiendo '{destino}'. Nombres válidos: python3 ak820.py teclas lista")
+        return entrada
+    if len(macros) >= 100:
+        raise ValueError("Como mucho caben 100 macros.")
+    macros.append(eventos)
+    return bytes([0x06, len(macros) - 1, MODO_MACRO[modo], veces])
+
+
+def preparar_teclas(config):
+    """Tablas de las dos capas y bloque de macros (o None) para una configuración.
+
+    Lanza ValueError con un mensaje para el usuario si algo no vale.
+    """
+    macros = []
+    tablas = {}
+    for capa in CAPAS:
+        cambios = {}
+        for origen, asignacion in config.get(capa, {}).items():
+            posicion = POSICION_TECLA.get(origen)
+            if posicion is None:
+                raise ValueError(f"No conozco la tecla '{origen}'.")
+            if capa == "fn" and posicion in NO_CAMBIABLES_FN:
+                raise ValueError(f"'{origen}' no se puede cambiar en la capa con Fn.")
+            try:
+                cambios[posicion] = entrada_asignacion(asignacion, macros)
+            except ValueError as e:
+                raise ValueError(f"{origen} ({NOMBRE_CAPA[capa]}): {e}") from None
+        tablas[capa] = tabla_teclas(cambios)
+    bloque = bloque_macros(macros) if macros else None
+    if macros and bloque is None:
+        raise ValueError("Las macros no caben en la memoria del teclado (3,5 KB). Acórtalas.")
+    return tablas, bloque
+
+
+def subir_macros(dispositivo, bloque):
+    """Sube el bloque de macros. Al cerrar, el teclado responde con la suma de los bytes
+    recibidos (bytes 5-6); si no coincide se repite: la primera vez a veces se pierde
+    (probablemente mientras borra su memoria de macros)."""
+    for intento in range(1, 4):
+        enviar(dispositivo, paquete_control(CMD_MACROS, byte8=0x00))
+        enviar(dispositivo, paquete_control(CMD_MACROS_DATOS, byte8=len(bloque) // PACKET_SIZE))
+        time.sleep(0.03)
+        for i in range(0, len(bloque), PACKET_SIZE):
+            dispositivo.send_feature_report(bytes([0x00]) + bloque[i:i + PACKET_SIZE])
+            time.sleep(PAUSA)
+        time.sleep(0.03)
+        respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        if respuesta and int.from_bytes(respuesta[5:7], "little") == sum(bloque) & 0xFFFF:
+            return True
+        print(f"  Las macros no han llegado bien (intento {intento}); repitiendo...")
+    return False
+
+
+def subir_tabla(dispositivo, comando, tabla):
+    """Sube la tabla de una capa (con la misma comprobación de la suma) y la guarda."""
+    for intento in range(1, 4):
+        enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
+        enviar(dispositivo, paquete_control(comando, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
+        for i in range(0, TAM_TABLA_TECLAS, PACKET_SIZE):
+            # Los trozos de la tabla van seguidos y sin leer respuesta (como el oficial).
+            dispositivo.send_feature_report(bytes([0x00]) + tabla[i:i + PACKET_SIZE])
+            time.sleep(PAUSA)
+        respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+        if respuesta and int.from_bytes(respuesta[5:7], "little") == sum(tabla) & 0xFFFF:
+            enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
+            return True
+        print(f"  La tabla de teclas no ha llegado bien (intento {intento}); repitiendo...")
+    return False
+
+
+def enviar_teclas(config):
+    """Manda las macros y las dos capas y, si todo llega bien, recuerda la configuración.
+
+    Devuelve True si ha ido bien; si no, imprime el motivo. Lanza ValueError si la
+    configuración no vale (antes de tocar el teclado).
+    """
+    tablas, bloque = preparar_teclas(config)
+    info = buscar_interfaz()
+    if info is None:
+        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+        return False
+    dispositivo = hid.device()
+    dispositivo.open_path(info["path"])
+    try:
+        if bloque and not subir_macros(dispositivo, bloque):
+            print("No consigo guardar las macros en el teclado. Prueba otra vez.")
+            return False
+        for capa, comando in CAPAS.items():
+            if not subir_tabla(dispositivo, comando, tablas[capa]):
+                print("No consigo guardar las teclas en el teclado. Prueba otra vez.")
+                return False
+    finally:
+        dispositivo.close()
+    guardar_teclas(config)
+    return True
+
+
+def describir_asignacion(asignacion):
+    destino = asignacion["destino"]
+    if destino.lower().startswith("texto:"):
+        modo = asignacion.get("modo") or "una"
+        if modo == "veces":
+            return f"{destino} ({asignacion.get('veces', 1)} veces)"
+        if modo != "una":
+            return f"{destino} (modo {modo})"
+    return destino
+
+
+def describir_teclas(config):
+    lineas = []
+    for capa in CAPAS:
+        cambios = config.get(capa, {})
+        resumen = ", ".join(f"{origen}={describir_asignacion(a)}" for origen, a in cambios.items())
+        lineas.append(f"  {NOMBRE_CAPA[capa][0].upper()}{NOMBRE_CAPA[capa][1:]}: {resumen or 'de fábrica'}")
+    return "\n".join(lineas)
+
+
 def cmd_teclas(args):
     if args.cambios == ["lista"]:
         print("Teclas que se pueden cambiar (origen, como están rotuladas):")
@@ -590,93 +761,42 @@ def cmd_teclas(args):
         print("Modificadores:", " ".join(sorted(MODIFICADOR)))
         print("Multimedia:", " ".join(MULTIMEDIA))
         print("Ratón:", " ".join(RATON), "doble_clic")
+        print("Para devolver una sola tecla a lo de fábrica: tecla=defecto (p. ej. avpag=defecto)")
         return 0
-    capa = CMD_TECLAS_FN if args.fn else CMD_TECLAS
-    cambios = {}
-    macros = []
-    if args.cambios != ["restaurar"]:
+    config = cargar_teclas()
+    if not args.cambios:
+        print("Teclas cambiadas (las últimas enviadas desde este Mac):")
+        print(describir_teclas(config))
+        return 0
+    capa = "fn" if args.fn else "normal"
+    if args.cambios == ["restaurar", "todo"]:
+        config = {c: {} for c in CAPAS}
+    elif args.cambios == ["restaurar"]:
+        config[capa] = {}
+    elif args.cambios != ["reenviar"]:
         for cambio in args.cambios:
-            origen, _, destino = cambio.partition("=")
+            origen, igual, destino = cambio.partition("=")
             origen = origen.lower()
-            if destino.lower() == "doble_clic":
-                macros.append(eventos_doble_clic())
-                entrada = bytes([0x06, len(macros) - 1, MODO_MACRO["una"], 1])
-            elif destino.lower().startswith("texto:"):
-                # Macro que escribe un texto: 06 <n.º de macro> <modo> <veces>
-                # (modo 0 = una vez; modo 1 = N veces; probado en el teclado)
-                eventos = eventos_texto(destino[len("texto:"):])
-                if not eventos:
-                    print(f"No sé escribir '{destino[6:]}' con una macro (solo letras, números, espacio y símbolos básicos).")
-                    return 1
-                macros.append(eventos)
-                modo = args.modo or ("veces" if args.veces > 1 else "una")
-                entrada = bytes([0x06, len(macros) - 1, MODO_MACRO[modo], args.veces])
-            else:
-                entrada = entrada_tecla(destino)
-            if origen not in POSICION_TECLA or entrada is None:
+            if not igual or origen not in POSICION_TECLA or not destino:
                 print(f"No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista")
                 return 1
-            if args.fn and POSICION_TECLA[origen] in NO_CAMBIABLES_FN:
-                print(f"'{origen}' no se puede cambiar en la capa con Fn.")
-                return 1
-            cambios[POSICION_TECLA[origen]] = entrada
-    info = buscar_interfaz()
-    if info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
-        return 1
-
-    tabla = tabla_teclas(cambios)
-    bloque = bloque_macros(macros) if macros else None
-    if macros and bloque is None:
-        print("Las macros no caben en la memoria del teclado (3,5 KB). Acórtalas.")
-        return 1
-    dispositivo = hid.device()
-    dispositivo.open_path(info["path"])
+            nombre = NOMBRE_TECLA[POSICION_TECLA[origen]]
+            if destino.lower() == "defecto":
+                config[capa].pop(nombre, None)
+                continue
+            asignacion = {"destino": destino}
+            if destino.lower().startswith("texto:"):
+                asignacion["modo"] = args.modo or ("veces" if args.veces > 1 else "una")
+                asignacion["veces"] = args.veces
+            config[capa][nombre] = asignacion
     try:
-        if bloque:
-            # Al cerrar, el teclado responde con la suma de los bytes que ha recibido
-            # (bytes 5-6 de la respuesta). Si no coincide, se repite: la primera vez a
-            # veces se pierde (probablemente mientras borra su memoria de macros).
-            for intento in range(1, 4):
-                enviar(dispositivo, paquete_control(CMD_MACROS, byte8=0x00))
-                enviar(dispositivo, paquete_control(CMD_MACROS_DATOS, byte8=len(bloque) // PACKET_SIZE))
-                time.sleep(0.03)
-                for i in range(0, len(bloque), PACKET_SIZE):
-                    dispositivo.send_feature_report(bytes([0x00]) + bloque[i:i + PACKET_SIZE])
-                    time.sleep(PAUSA)
-                time.sleep(0.03)
-                respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
-                recibido = int.from_bytes(respuesta[5:7], "little") if respuesta else None
-                if recibido == sum(bloque) & 0xFFFF:
-                    break
-                print(f"  Las macros no han llegado bien (intento {intento}); repitiendo...")
-            else:
-                print("No consigo guardar las macros en el teclado. Prueba otra vez.")
-                return 1
-        for intento in range(1, 4):
-            enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
-            enviar(dispositivo, paquete_control(capa, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
-            for i in range(0, TAM_TABLA_TECLAS, PACKET_SIZE):
-                # Los trozos de la tabla van seguidos y sin leer respuesta (como el oficial).
-                dispositivo.send_feature_report(bytes([0x00]) + tabla[i:i + PACKET_SIZE])
-                time.sleep(PAUSA)
-            # También aquí el teclado responde con la suma de lo recibido.
-            respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
-            if respuesta and int.from_bytes(respuesta[5:7], "little") == sum(tabla) & 0xFFFF:
-                break
-            print(f"  La tabla de teclas no ha llegado bien (intento {intento}); repitiendo...")
-        else:
-            print("No consigo guardar las teclas en el teclado. Prueba otra vez.")
+        if not enviar_teclas(config):
             return 1
-        enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
-    finally:
-        dispositivo.close()
-    nombre_capa = "capa con Fn" if args.fn else "capa normal"
-    if cambios:
-        print(f"Teclas cambiadas ({nombre_capa}):", ", ".join(args.cambios))
-        print("(Cada vez se manda la tabla entera de esa capa: los cambios anteriores se sustituyen.)")
-    else:
-        print(f"Todas las teclas de la {nombre_capa} vuelven a ser las de fábrica.")
+    except ValueError as e:
+        print(e)
+        return 1
+    print("Teclas guardadas en el teclado:")
+    print(describir_teclas(config))
     return 0
 
 
@@ -757,8 +877,10 @@ def main(argv=None):
     i = sub.add_parser("imagen", help="poner una imagen en la pantalla del teclado")
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
-    t.add_argument("cambios", nargs="+",
-                   help="origen=destino (p. ej. avpag=b, repag=cmd+c, supr=volumen+, avpag=texto:hola), 'restaurar' o 'lista'")
+    t.add_argument("cambios", nargs="*",
+                   help="origen=destino (p. ej. avpag=b, repag=cmd+c, supr=volumen+, avpag=texto:hola, "
+                        "avpag=defecto); 'restaurar' (la capa), 'restaurar todo', 'reenviar' o 'lista'. "
+                        "Sin nada, enseña las teclas cambiadas")
     t.add_argument("--fn", action="store_true", help="cambiar la capa con Fn (Fn + tecla) en vez de la normal")
     t.add_argument("--veces", type=int, default=1, choices=range(1, 256), metavar="N",
                    help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")

@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de teclas · AK820</title>
+<style>
+  :root {
+    --fondo: #f2f2f5; --panel: #ffffff; --texto: #1d1d1f; --suave: #6e6e73; --borde: #d2d2d7;
+    --tecla: #fdfdfe; --tecla-borde: #c4c4ca; --tecla-sombra: #b9b9c0;
+    --acento: #0a6cff; --acento-suave: #e3eeff; --acento-texto: #0a4fbf;
+    --pendiente: #c76a00; --pendiente-suave: #fff1dc;
+    --apagada: #e6e6ea; --error: #c4001a; --error-suave: #ffe8eb; --bien: #1f7a36; --bien-suave: #e4f6e8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #161618; --panel: #222225; --texto: #f2f2f4; --suave: #a1a1a8; --borde: #3a3a3f;
+      --tecla: #2e2e33; --tecla-borde: #46464d; --tecla-sombra: #0d0d0f;
+      --acento: #4b93ff; --acento-suave: #1b2c48; --acento-texto: #9cc2ff;
+      --pendiente: #ffb147; --pendiente-suave: #3d2a10;
+      --apagada: #1c1c1f; --error: #ff6b7d; --error-suave: #3f1a20; --bien: #5fd37c; --bien-suave: #183222;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--texto);
+         font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 120px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; }
+  h1 small { font-weight: 400; color: var(--suave); font-size: 15px; margin-left: 6px; }
+  .segmentos { display: inline-flex; background: var(--apagada); border-radius: 9px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+  .segmentos button { border: 0; background: transparent; color: var(--texto); font: inherit; padding: 6px 12px;
+                      border-radius: 7px; cursor: pointer; }
+  .segmentos button[aria-pressed="true"] { background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.18); font-weight: 600; }
+  .tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: 14px; padding: 16px; }
+  #zona-teclado { overflow: hidden; }
+  #teclado { position: relative; margin: 0 auto; }
+  .tecla { position: absolute; border: 1px solid var(--tecla-borde); border-bottom-width: 3px; border-bottom-color: var(--tecla-sombra);
+           background: var(--tecla); color: var(--texto); border-radius: 7px; padding: 3px 5px; cursor: pointer; font: inherit;
+           display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; text-align: left; overflow: hidden; }
+  .tecla:hover:not(:disabled) { border-color: var(--acento); }
+  .tecla .et { font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .tecla .mac { position: absolute; right: 5px; top: 3px; font-size: 11px; color: var(--suave); }
+  .tecla .asig { font-size: 10.5px; line-height: 1.15; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--acento-texto); font-weight: 600; }
+  .tecla.cambiada { background: var(--acento-suave); border-color: var(--acento); }
+  .tecla.pendiente { background: var(--pendiente-suave); border-color: var(--pendiente); }
+  .tecla.pendiente .asig { color: var(--pendiente); }
+  .tecla.pendiente::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--pendiente); }
+  .tecla.elegida { outline: 3px solid var(--acento); outline-offset: 1px; }
+  .tecla:disabled { background: var(--apagada); color: var(--suave); cursor: not-allowed; border-bottom-width: 1px; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; color: var(--suave); font-size: 13px; }
+  .leyenda span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--tecla-borde); }
+  .leyenda .l-cambiada::before { background: var(--acento-suave); border-color: var(--acento); }
+  .leyenda .l-pendiente::before { background: var(--pendiente-suave); border-color: var(--pendiente); }
+  .leyenda .l-apagada::before { background: var(--apagada); }
+  #panel { margin-top: 16px; }
+  #panel h2 { font-size: 18px; margin: 0 0 4px; }
+  #panel .ahora { color: var(--suave); margin: 0 0 14px; }
+  .vacio { color: var(--suave); text-align: center; padding: 18px 0; margin: 0; }
+  .fila { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+  label.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--borde); border-radius: 8px; padding: 6px 10px; cursor: pointer; user-select: none; }
+  label.chip:has(input:checked) { border-color: var(--acento); background: var(--acento-suave); }
+  select, input[type=text], input[type=number] { font: inherit; color: var(--texto); background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 7px 9px; }
+  input[type=text] { width: min(100%, 420px); }
+  input[type=number] { width: 80px; }
+  .opciones { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 12px 0; }
+  .opciones button { font: inherit; text-align: left; padding: 9px 12px; border: 1px solid var(--borde); border-radius: 9px; background: var(--panel); color: var(--texto); cursor: pointer; }
+  .opciones button[aria-pressed="true"] { border-color: var(--acento); background: var(--acento-suave); font-weight: 600; }
+  .nota { color: var(--suave); font-size: 13px; margin: 6px 0; }
+  .botones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .boton { font: inherit; border-radius: 9px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--borde); background: var(--panel); color: var(--texto); }
+  .boton.principal { background: var(--acento); border-color: var(--acento); color: #fff; font-weight: 600; }
+  .boton:disabled { opacity: .5; cursor: default; }
+  .boton.captando { border-color: var(--pendiente); color: var(--pendiente); }
+  #barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--borde); }
+  #barra .dentro { max-width: 1080px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  #estado { flex: 1 1 220px; color: var(--suave); }
+  #estado.hay { color: var(--pendiente); font-weight: 600; }
+  #mensaje { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; display: none; }
+  #mensaje.bien { display: block; background: var(--bien-suave); color: var(--bien); }
+  #mensaje.error { display: block; background: var(--error-suave); color: var(--error); }
+  #mensaje.info { display: block; background: var(--acento-suave); color: var(--acento-texto); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Editor de teclas <small>Ajazz AK820</small></h1>
+    <div class="segmentos" role="group" aria-label="Capa">
+      <button type="button" data-capa="normal" aria-pressed="true">Capa normal</button>
+      <button type="button" data-capa="fn" aria-pressed="false">Capa Fn (Fn + tecla)</button>
+    </div>
+  </header>
+
+  <p id="mensaje" role="status"></p>
+
+  <section class="tarjeta" id="zona-teclado">
+    <div id="teclado" aria-label="Teclado"></div>
+    <div class="leyenda">
+      <span class="l-cambiada">Cambiada en el teclado</span>
+      <span class="l-pendiente">Cambio sin enviar</span>
+      <span class="l-apagada">No se puede cambiar en esta capa</span>
+    </div>
+  </section>
+
+  <section class="tarjeta" id="panel">
+    <p class="vacio">Pincha una tecla del dibujo para cambiar lo que hace.</p>
+  </section>
+</main>
+
+<div id="barra">
+  <div class="dentro">
+    <span id="estado">Cargando…</span>
+    <button type="button" class="boton" id="deshacer">Deshacer cambios</button>
+    <button type="button" class="boton" id="fabrica">Todo de fábrica</button>
+    <button type="button" class="boton principal" id="enviar">Enviar al teclado</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const CLAVE = new URLSearchParams(location.hash.slice(1)).get("clave") || "";
+const ANCHO_TECLADO = 610, ALTO_TECLADO = 236;
+
+// --- Nombres para enseñar --------------------------------------------------------
+const SIMBOLO_MOD = { ctrl: "⌃", shift: "⇧", option: "⌥", alt: "⌥", cmd: "⌘", win: "⌘",
+                      ctrl_der: "⌃", shift_der: "⇧", option_der: "⌥", alt_der: "⌥", cmd_der: "⌘", win_der: "⌘" };
+const NOMBRE_MOD = { ctrl: "⌃ Control", shift: "⇧ Shift", option: "⌥ Option", cmd: "⌘ Cmd" };
+const NOMBRE_TECLA = { enter: "↩ Enter", esc: "Esc", borrar: "⌫ Borrar", tab: "⇥ Tab", espacio: "Espacio",
+  bloqmayus: "⇪ Bloq Mayús", imprpant: "Impr Pant", insert: "Insert", inicio: "Inicio", fin: "Fin",
+  repag: "RePág", avpag: "AvPág", supr: "Supr", arriba: "↑", abajo: "↓", izquierda: "←", derecha: "→" };
+const CORTO_TECLA = { enter: "↩", borrar: "⌫", tab: "⇥", espacio: "Espacio", bloqmayus: "⇪", imprpant: "ImpPnt" };
+const MULTIMEDIA = { play: "⏯ Reproducir / pausa", siguiente: "⏭ Siguiente", anterior: "⏮ Anterior", stop: "⏹ Parar",
+  silencio: "🔇 Silencio", "volumen+": "🔊 Subir volumen", "volumen-": "🔉 Bajar volumen",
+  "brillo+": "🔆 Subir brillo", "brillo-": "🔅 Bajar brillo" };
+const CORTO_MULTIMEDIA = { play: "⏯", siguiente: "⏭", anterior: "⏮", stop: "⏹", silencio: "🔇",
+  "volumen+": "🔊+", "volumen-": "🔉−", "brillo+": "🔆+", "brillo-": "🔅−" };
+const RATON = { clic: "Clic", clic_der: "Clic derecho", clic_medio: "Clic central", doble_clic: "Doble clic",
+  rueda_arriba: "Rueda arriba", rueda_abajo: "Rueda abajo" };
+const CORTO_RATON = { clic: "Clic", clic_der: "Clic dcho", clic_medio: "Clic centr", doble_clic: "2 clics",
+  rueda_arriba: "Rueda ↑", rueda_abajo: "Rueda ↓" };
+const MODOS = { una: "Una vez", veces: "Varias veces seguidas", mantener: "Mientras se mantiene pulsada",
+  alternar: "Hasta volver a pulsarla", paso: "Una letra por pulsación" };
+const TIPOS = [["fabrica", "De fábrica"], ["tecla", "Tecla o atajo"], ["multimedia", "Multimedia"],
+               ["raton", "Ratón"], ["texto", "Escribir texto"], ["multi", "Varias a la vez"]];
+const CODIGO_NAVEGADOR = { Enter: "enter", Escape: "esc", Backspace: "borrar", Tab: "tab", Space: "espacio",
+  Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\", Semicolon: ";", Quote: "'",
+  Backquote: "`", Comma: ",", Period: ".", Slash: "/", CapsLock: "bloqmayus", PrintScreen: "imprpant",
+  Insert: "insert", Home: "inicio", PageUp: "repag", Delete: "supr", End: "fin", PageDown: "avpag",
+  ArrowRight: "derecha", ArrowLeft: "izquierda", ArrowDown: "abajo", ArrowUp: "arriba" };
+
+const nombreTecla = (t) => NOMBRE_TECLA[t] || t.toUpperCase();
+const cortoTecla = (t) => CORTO_TECLA[t] || nombreTecla(t);
+// "alt"/"win" son "option"/"cmd" en el Mac; los derechos se enseñan igual que los izquierdos.
+const modBase = (p) => { const b = p.replace("_der", ""); return { alt: "option", win: "cmd" }[b] || b; };
+
+function resumen(asig) {
+  const d = asig.destino, dl = d.toLowerCase();
+  if (dl.startsWith("texto:")) {
+    const marca = { veces: ` ×${asig.veces || 1}`, mantener: " ⟳", alternar: " ⇆", paso: " ⋯" }[asig.modo] || "";
+    return `“${d.slice(6)}”${marca}`;
+  }
+  if (dl.startsWith("multi:")) return dl.slice(6).split("+").map(cortoTecla).join("+");
+  if (CORTO_MULTIMEDIA[dl]) return CORTO_MULTIMEDIA[dl];
+  if (CORTO_RATON[dl]) return CORTO_RATON[dl];
+  const partes = dl.split("+");
+  return partes.map((p) => SIMBOLO_MOD[p] || cortoTecla(p)).join("");
+}
+function describir(asig) {
+  if (!asig) return "De fábrica";
+  const d = asig.destino, dl = d.toLowerCase();
+  if (dl.startsWith("texto:")) return `Escribe “${d.slice(6)}” (${MODOS[asig.modo || "una"].toLowerCase()}${asig.modo === "veces" ? `: ${asig.veces} veces` : ""})`;
+  if (dl.startsWith("multi:")) return "Pulsa a la vez " + dl.slice(6).split("+").map(nombreTecla).join(" + ");
+  if (MULTIMEDIA[dl]) return MULTIMEDIA[dl];
+  if (RATON[dl]) return RATON[dl];
+  return dl.split("+").map((p) => SIMBOLO_MOD[p] ? NOMBRE_MOD[modBase(p)] : nombreTecla(p)).join(" + ");
+}
+
+// --- Estado -------------------------------------------------------------------------
+let distribucion = [], catalogo = null;
+let guardado = { normal: {}, fn: {} };      // lo que tiene el teclado (lo último enviado)
+let actual = { normal: {}, fn: {} };        // lo que se está editando
+let capa = "normal", elegida = null, enviando = false;
+
+const igual = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+const copia = (o) => JSON.parse(JSON.stringify(o));
+function pendientes() {
+  let n = 0;
+  for (const c of ["normal", "fn"]) {
+    const nombres = new Set([...Object.keys(actual[c]), ...Object.keys(guardado[c])]);
+    for (const t of nombres) if (!igual(actual[c][t], guardado[c][t])) n++;
+  }
+  return n;
+}
+const bloqueada = (t) => !t.nombre || (capa === "fn" && catalogo.no_cambiables_fn.includes(t.nombre));
+
+// --- Comunicación con el servidor ----------------------------------------------------
+async function api(ruta, cuerpo) {
+  const opciones = { headers: { "X-Clave": CLAVE } };
+  if (cuerpo !== undefined) {
+    opciones.method = "POST";
+    opciones.headers["Content-Type"] = "application/json";
+    opciones.body = JSON.stringify(cuerpo);
+  }
+  let r;
+  try { r = await fetch(ruta, opciones); }
+  catch (e) { throw new Error("El editor está cerrado. Ábrelo otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…)."); }
+  if (r.status === 403) throw new Error("Esta pestaña es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…).");
+  return r.json();
+}
+function avisar(texto, tipo) {
+  const m = document.getElementById("mensaje");
+  m.textContent = texto;
+  m.className = texto ? tipo : "";
+}
+
+// --- Dibujo del teclado ----------------------------------------------------------------
+function dibujarTeclado() {
+  const zona = document.getElementById("teclado");
+  const escala = Math.min(1.65, (document.getElementById("zona-teclado").clientWidth - 34) / ANCHO_TECLADO);
+  zona.style.width = ANCHO_TECLADO * escala + "px";
+  zona.style.height = ALTO_TECLADO * escala + "px";
+  zona.replaceChildren();
+  for (const t of distribucion) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tecla";
+    Object.assign(b.style, { left: t.x * escala + "px", top: t.y * escala + "px",
+                             width: t.ancho * escala + "px", height: t.alto * escala + "px" });
+    const et = document.createElement("span");
+    et.className = "et";
+    et.textContent = t.etiqueta;
+    b.append(et);
+    if (bloqueada(t)) {
+      b.disabled = true;
+      b.title = t.nombre ? "Esta tecla no se puede cambiar en la capa Fn" : "La tecla Fn no se puede cambiar";
+    } else {
+      const asig = actual[capa][t.nombre];
+      if (t.mac && !asig) {
+        const mac = document.createElement("span");
+        mac.className = "mac";
+        mac.textContent = t.mac;
+        b.title = `En modo Mac hace de ${t.mac === "⌘" ? "Cmd" : "Option"}`;
+        b.append(mac);
+      }
+      if (asig) {
+        const a = document.createElement("span");
+        a.className = "asig";
+        a.textContent = resumen(asig);
+        b.append(a);
+        b.title = describir(asig);
+      }
+      if (!igual(asig, guardado[capa][t.nombre])) b.classList.add("pendiente");
+      else if (asig) b.classList.add("cambiada");
+      if (t.nombre === elegida) b.classList.add("elegida");
+      b.addEventListener("click", () => elegir(t.nombre));
+    }
+    zona.append(b);
+  }
+  const n = pendientes();
+  const estado = document.getElementById("estado");
+  estado.textContent = n ? `${n} cambio${n > 1 ? "s" : ""} sin enviar` : "El teclado tiene lo que ves";
+  estado.className = n ? "hay" : "";
+  document.getElementById("deshacer").disabled = !n || enviando;
+  const enviar = document.getElementById("enviar");
+  enviar.textContent = enviando ? "Enviando…" : n ? "Enviar al teclado" : "Reenviar al teclado";
+  enviar.disabled = enviando;
+  document.getElementById("fabrica").disabled = enviando;
+}
+
+// --- Panel de la tecla elegida -----------------------------------------------------------
+let tipo = "fabrica", borrador = {};
+
+function tipoDe(asig) {
+  if (!asig) return ["fabrica", {}];
+  const d = asig.destino, dl = d.toLowerCase();
+  if (dl.startsWith("texto:")) return ["texto", { texto: d.slice(6), modo: asig.modo || "una", veces: asig.veces || 2 }];
+  if (dl.startsWith("multi:")) return ["multi", { teclas: dl.slice(6).split("+") }];
+  if (MULTIMEDIA[dl]) return ["multimedia", { valor: dl }];
+  if (RATON[dl]) return ["raton", { valor: dl }];
+  const partes = dl.split("+");
+  const mods = partes.filter((p) => SIMBOLO_MOD[p]).map(modBase);
+  const tecla = partes.find((p) => !SIMBOLO_MOD[p]) || "";
+  return ["tecla", { mods, tecla }];
+}
+
+function elegir(nombre) {
+  elegida = nombre;
+  [tipo, borrador] = tipoDe(actual[capa][nombre]);
+  avisar("", "");
+  dibujarTeclado();
+  dibujarPanel();
+}
+
+function asignacionDelBorrador() {
+  switch (tipo) {
+    case "fabrica": return null;
+    case "tecla": {
+      if (!borrador.tecla && !(borrador.mods || []).length) throw new Error("Elige una tecla o algún modificador.");
+      return { destino: [...(borrador.mods || []), borrador.tecla].filter(Boolean).join("+") };
+    }
+    case "multimedia": case "raton":
+      if (!borrador.valor) throw new Error("Elige una opción.");
+      return { destino: borrador.valor };
+    case "texto": {
+      if (!borrador.texto) throw new Error("Escribe el texto.");
+      const a = { destino: "texto:" + borrador.texto, modo: borrador.modo || "una", veces: 1 };
+      if (a.modo === "veces") a.veces = Math.max(2, Math.min(255, parseInt(borrador.veces, 10) || 2));
+      return a;
+    }
+    case "multi": {
+      const teclas = (borrador.teclas || []).filter(Boolean);
+      if (teclas.length < 2) throw new Error("Elige al menos dos teclas.");
+      return { destino: "multi:" + teclas.join("+") };
+    }
+  }
+}
+
+function selectorTeclas(valor, alCambiar, conVacio) {
+  const s = document.createElement("select");
+  const grupos = [["Letras", (t) => /^[a-z]$/.test(t)], ["Números", (t) => /^\d$/.test(t)],
+                  ["Funciones", (t) => /^f\d+$/.test(t)], ["Navegación y edición", (t) => NOMBRE_TECLA[t]],
+                  ["Símbolos", () => true]];
+  const vacia = document.createElement("option");
+  vacia.value = "";
+  vacia.textContent = conVacio;
+  s.append(vacia);
+  const usadas = new Set();
+  for (const [titulo, filtro] of grupos) {
+    const g = document.createElement("optgroup");
+    g.label = titulo;
+    for (const t of catalogo.teclas) {
+      if (usadas.has(t) || !filtro(t)) continue;
+      usadas.add(t);
+      const o = document.createElement("option");
+      o.value = t;
+      o.textContent = nombreTecla(t);
+      g.append(o);
+    }
+    s.append(g);
+  }
+  s.value = valor || "";
+  s.addEventListener("change", () => alCambiar(s.value));
+  return s;
+}
+
+function botonesOpciones(opciones, valor, alElegir) {
+  const caja = document.createElement("div");
+  caja.className = "opciones";
+  for (const [clave, texto] of Object.entries(opciones)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = texto;
+    b.setAttribute("aria-pressed", String(clave === valor));
+    b.addEventListener("click", () => alElegir(clave));
+    caja.append(b);
+  }
+  return caja;
+}
+
+function nota(texto) {
+  const p = document.createElement("p");
+  p.className = "nota";
+  p.textContent = texto;
+  return p;
+}
+
+let quitarCaptura = null;
+function capturar(boton) {
+  if (quitarCaptura) { quitarCaptura(); return; }
+  boton.textContent = "Pulsa la tecla o el atajo… (clic aquí para cancelar)";
+  boton.classList.add("captando");
+  const alPulsar = (e) => {
+    if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key) && e.code !== "CapsLock") return;
+    e.preventDefault();
+    let t = CODIGO_NAVEGADOR[e.code];
+    if (!t && /^Key[A-Z]$/.test(e.code)) t = e.code.slice(3).toLowerCase();
+    if (!t && /^Digit\d$/.test(e.code)) t = e.code.slice(5);
+    if (!t && /^F\d+$/.test(e.code)) t = e.code.toLowerCase();
+    if (!t || !catalogo.teclas.includes(t)) { avisar("Esa tecla no se puede asignar; elígela de la lista.", "error"); return; }
+    const mods = [];
+    if (e.ctrlKey) mods.push("ctrl");
+    if (e.shiftKey) mods.push("shift");
+    if (e.altKey) mods.push("option");
+    if (e.metaKey) mods.push("cmd");
+    borrador = { mods, tecla: t };
+    quitarCaptura();
+    dibujarPanel();
+  };
+  window.addEventListener("keydown", alPulsar, true);
+  quitarCaptura = () => {
+    window.removeEventListener("keydown", alPulsar, true);
+    quitarCaptura = null;
+    boton.textContent = "⌨︎ Capturar pulsando el atajo";
+    boton.classList.remove("captando");
+  };
+}
+
+function dibujarPanel() {
+  const panel = document.getElementById("panel");
+  if (quitarCaptura) quitarCaptura();
+  panel.replaceChildren();
+  if (!elegida) {
+    const p = document.createElement("p");
+    p.className = "vacio";
+    p.textContent = "Pincha una tecla del dibujo para cambiar lo que hace.";
+    panel.append(p);
+    return;
+  }
+  const t = distribucion.find((x) => x.nombre === elegida);
+  const h = document.createElement("h2");
+  h.textContent = `${t.etiqueta || "Espacio"} · ${capa === "fn" ? "con Fn" : "capa normal"}`;
+  const ahora = document.createElement("p");
+  ahora.className = "ahora";
+  const enTeclado = guardado[capa][elegida];
+  ahora.textContent = "En el teclado: " + describir(enTeclado) +
+    (igual(actual[capa][elegida], enTeclado) ? "" : " · Sin enviar: " + describir(actual[capa][elegida]));
+  const tipos = document.createElement("div");
+  tipos.className = "segmentos";
+  for (const [clave, texto] of TIPOS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = texto;
+    b.setAttribute("aria-pressed", String(clave === tipo));
+    b.addEventListener("click", () => { if (clave !== tipo) { tipo = clave; borrador = {}; dibujarPanel(); } });
+    tipos.append(b);
+  }
+  panel.append(h, ahora, tipos);
+
+  const cuerpo = document.createElement("div");
+  if (tipo === "fabrica") {
+    cuerpo.append(nota("La tecla hará lo mismo que de fábrica."));
+  } else if (tipo === "tecla") {
+    const fila = document.createElement("div");
+    fila.className = "fila";
+    for (const m of catalogo.modificadores) {
+      const l = document.createElement("label");
+      l.className = "chip";
+      const c = document.createElement("input");
+      c.type = "checkbox";
+      c.checked = (borrador.mods || []).includes(m);
+      c.addEventListener("change", () => {
+        const mods = new Set(borrador.mods || []);
+        c.checked ? mods.add(m) : mods.delete(m);
+        borrador.mods = catalogo.modificadores.filter((x) => mods.has(x));
+      });
+      l.append(c, NOMBRE_MOD[m]);
+      fila.append(l);
+    }
+    fila.append(selectorTeclas(borrador.tecla, (v) => { borrador.tecla = v; }, "(solo modificadores)"));
+    const captura = document.createElement("button");
+    captura.type = "button";
+    captura.className = "boton";
+    captura.textContent = "⌨︎ Capturar pulsando el atajo";
+    captura.addEventListener("click", () => capturar(captura));
+    cuerpo.append(fila, captura,
+      nota("Algunos atajos (⌘Tab, ⌘Espacio, ⌘Q…) los usa el Mac antes de que lleguen aquí: márcalos a mano. " +
+           "Las teclas Win y Alt hacen de ⌥ y ⌘ en modo Mac, pero una tecla cambiada manda exactamente lo que elijas."));
+  } else if (tipo === "multimedia" || tipo === "raton") {
+    const opciones = tipo === "multimedia" ? MULTIMEDIA : RATON;
+    cuerpo.append(botonesOpciones(opciones, borrador.valor, (v) => { borrador.valor = v; dibujarPanel(); }));
+    if (tipo === "raton") cuerpo.append(nota("La rueda se mueve una muesca por pulsación. Los botones atrás/adelante no existen en este teclado."));
+  } else if (tipo === "texto") {
+    const fila = document.createElement("div");
+    fila.className = "fila";
+    const entrada = document.createElement("input");
+    entrada.type = "text";
+    entrada.maxLength = 300;
+    entrada.placeholder = "Texto que escribirá la tecla";
+    entrada.value = borrador.texto || "";
+    entrada.addEventListener("input", () => { borrador.texto = entrada.value; });
+    const modo = document.createElement("select");
+    for (const [clave, texto] of Object.entries(MODOS)) {
+      const o = document.createElement("option");
+      o.value = clave;
+      o.textContent = texto;
+      modo.append(o);
+    }
+    modo.value = borrador.modo || "una";
+    const veces = document.createElement("input");
+    veces.type = "number";
+    veces.min = 2;
+    veces.max = 255;
+    veces.value = borrador.veces || 2;
+    veces.hidden = modo.value !== "veces";
+    veces.addEventListener("input", () => { borrador.veces = veces.value; });
+    modo.addEventListener("change", () => { borrador.modo = modo.value; veces.hidden = modo.value !== "veces"; });
+    fila.append(entrada, modo, veces);
+    cuerpo.append(fila, nota("Letras sin tilde, números, espacio y símbolos básicos. El teclado escribe como un teclado inglés: " +
+                             "con el Mac en español, algunos símbolos pueden salir distintos."));
+  } else if (tipo === "multi") {
+    const fila = document.createElement("div");
+    fila.className = "fila";
+    const teclas = borrador.teclas || [];
+    for (let i = 0; i < 3; i++) {
+      fila.append(selectorTeclas(teclas[i], (v) => { borrador.teclas = [...(borrador.teclas || [])]; borrador.teclas[i] = v; }, i < 2 ? "Elige tecla" : "(ninguna)"));
+    }
+    cuerpo.append(fila, nota("Hasta tres teclas normales a la vez. Para atajos con ⌘, ⇧, ⌥ o ⌃ usa «Tecla o atajo»."));
+  }
+  panel.append(cuerpo);
+
+  const botones = document.createElement("div");
+  botones.className = "botones";
+  const asignar = document.createElement("button");
+  asignar.type = "button";
+  asignar.className = "boton principal";
+  asignar.textContent = "Asignar a la tecla";
+  asignar.addEventListener("click", asignarTecla);
+  botones.append(asignar);
+  if (!igual(actual[capa][elegida], enTeclado)) {
+    const volver = document.createElement("button");
+    volver.type = "button";
+    volver.className = "boton";
+    volver.textContent = "Dejarla como en el teclado";
+    volver.addEventListener("click", () => {
+      if (enTeclado) actual[capa][elegida] = copia(enTeclado); else delete actual[capa][elegida];
+      elegir(elegida);
+    });
+    botones.append(volver);
+  }
+  panel.append(botones);
+}
+
+async function asignarTecla() {
+  let asig;
+  try { asig = asignacionDelBorrador(); }
+  catch (e) { avisar(e.message, "error"); return; }
+  if (asig) {
+    try {
+      const r = await api("/api/validar", { asignacion: asig });
+      if (!r.ok) { avisar(r.mensaje, "error"); return; }
+    } catch (e) { avisar(e.message, "error"); return; }
+    actual[capa][elegida] = asig;
+  } else {
+    delete actual[capa][elegida];
+  }
+  avisar("Asignado. Cuando acabes, pulsa «Enviar al teclado».", "info");
+  dibujarTeclado();
+  dibujarPanel();
+}
+
+// --- Botones de la barra ---------------------------------------------------------------
+async function enviarAlTeclado() {
+  enviando = true;
+  avisar("Enviando al teclado…", "info");
+  dibujarTeclado();
+  try {
+    const r = await api("/api/enviar", { config: actual });
+    if (r.ok) {
+      guardado = r.config;
+      actual = copia(r.config);
+      avisar(r.mensaje + " Ya puedes probarlas.", "bien");
+    } else {
+      avisar(r.mensaje, "error");
+    }
+  } catch (e) {
+    avisar(e.message, "error");
+  }
+  enviando = false;
+  dibujarTeclado();
+  dibujarPanel();
+}
+
+document.getElementById("enviar").addEventListener("click", enviarAlTeclado);
+document.getElementById("deshacer").addEventListener("click", () => {
+  actual = copia(guardado);
+  avisar("", "");
+  dibujarTeclado();
+  if (elegida) elegir(elegida);
+});
+document.getElementById("fabrica").addEventListener("click", () => {
+  actual = { normal: {}, fn: {} };
+  avisar("Todas las teclas de las dos capas quedan de fábrica. Pulsa «Enviar al teclado» para aplicarlo.", "info");
+  dibujarTeclado();
+  if (elegida) elegir(elegida);
+});
+for (const b of document.querySelectorAll("[data-capa]")) {
+  b.addEventListener("click", () => {
+    capa = b.dataset.capa;
+    for (const x of document.querySelectorAll("[data-capa]")) x.setAttribute("aria-pressed", String(x === b));
+    const t = distribucion.find((x) => x.nombre === elegida);
+    if (t && bloqueada(t)) elegida = null;
+    dibujarTeclado();
+    if (elegida) elegir(elegida); else dibujarPanel();
+  });
+}
+window.addEventListener("resize", () => { if (catalogo) dibujarTeclado(); });
+// Al volver a la pestaña, se recoge lo que se haya cambiado desde fuera (terminal o app).
+window.addEventListener("focus", async () => {
+  if (!catalogo || enviando) return;
+  let r;
+  try { r = await api("/api/estado"); } catch (e) { return; }
+  if (igual(r.config, guardado)) return;
+  guardado = r.config;
+  if (pendientes()) {
+    avisar("Las teclas se han cambiado desde fuera del editor. Tus cambios sin enviar siguen aquí; " +
+           "«Deshacer cambios» enseña lo que tiene ahora el teclado.", "info");
+  } else {
+    actual = copia(r.config);
+    avisar("Actualizado con los cambios hechos desde fuera del editor.", "info");
+  }
+  dibujarTeclado();
+  if (elegida) elegir(elegida);
+});
+window.addEventListener("beforeunload", (e) => {
+  if (catalogo && pendientes()) { e.preventDefault(); e.returnValue = ""; }
+});
+
+(async () => {
+  try {
+    const r = await api("/api/estado");
+    distribucion = r.distribucion;
+    catalogo = r.catalogo;
+    guardado = r.config;
+    actual = copia(r.config);
+    dibujarTeclado();
+  } catch (e) {
+    document.getElementById("estado").textContent = "";
+    avisar(e.message, "error");
+  }
+})();
+</script>
+</body>
+</html>

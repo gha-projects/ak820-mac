@@ -13,18 +13,28 @@ python3 ak820.py teclas --fn avpag=siguiente       # capa con Fn (Fn + AvPág)
 python3 ak820.py teclas avpag=texto:Hola           # macro: el teclado escribe "Hola"
 python3 ak820.py teclas avpag=texto:hola --veces 3 # ...y lo repite 3 veces
 python3 ak820.py teclas avpag=multi:a+s            # Multi-Key: A y S a la vez
+python3 ak820.py teclas avpag=defecto              # una tecla vuelve a ser la de fábrica
+python3 ak820.py teclas                            # ver lo que hay cambiado
 python3 ak820.py teclas restaurar                  # capa normal de fábrica
 python3 ak820.py teclas --fn restaurar             # capa con Fn de fábrica
+python3 ak820.py teclas restaurar todo             # las dos
+python3 ak820.py teclas reenviar                   # volver a mandar lo guardado
 python3 ak820.py teclas lista                      # todos los nombres
 ```
 
-- Cada envío manda **la tabla entera de esa capa**: los cambios anteriores de esa capa se
-  sustituyen. Pon todos los cambios en la misma orden.
+También hay un editor visual en el navegador (`python3 ak820_editor.py`, o en la app
+Teclas → Editor de teclas…).
+
+- El teclado no deja leer sus teclas, así que el programa **recuerda lo enviado** en
+  `~/Library/Application Support/ak820-mac/teclas.json` y los cambios se suman. Cada
+  envío manda **las dos capas y todas las macros**: el bloque de macros es uno solo para
+  las dos capas, y mandar solo una capa con macros borraría las de la otra.
 - Los orígenes se llaman como están **rotulados** en el teclado (`win`, `alt`…). En modo
   Mac el teclado intercambia Win y Alt por su cuenta; una tecla cambiada manda
   exactamente lo que se pide (`cmd`, `option`…), sin ese intercambio.
-- En la capa con Fn no se pueden cambiar Esc, Inicio ni Win (el programa oficial tampoco),
-  ni Supr (el teclado ignora el cambio).
+- En la capa con Fn no se pueden cambiar Esc, Borrar, Inicio, `\` ni Win (el programa
+  oficial tampoco: `fnlayer_disable` en su `rgb-keyboard.xml`), ni Supr (el teclado
+  ignora el cambio).
 
 ## Probado en el teclado
 

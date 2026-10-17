@@ -26,6 +26,7 @@ import time
 import rumps
 
 import ak820
+import ak820_editor
 
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 GUIA_TECLAS = os.path.join(CARPETA, "docs", "teclas.md")
@@ -72,7 +73,7 @@ def args_imagen(ruta):
 
 def args_restaurar_teclas():
     """Las dos capas de teclas de fábrica (normal y con Fn)."""
-    return [["teclas", "restaurar"], ["teclas", "--fn", "restaurar"]]
+    return [["teclas", "restaurar", "todo"]]
 
 
 def resumen(salida, codigo, solo_ultima=False, completo=False):
@@ -129,6 +130,7 @@ class AppAK820(rumps.App):
         self.hecho_hasta = 0                # hasta cuándo se ve el ✓ en el icono
         self.brillo = 5
         self.ultima_luz = None              # (efecto, color) para reaplicar al cambiar el brillo
+        self.editor = ak820_editor.Editor(self.candado)   # se arranca al abrirlo la primera vez
 
         self.item_estado = rumps.MenuItem("Comprobar teclado", callback=self.comprobar)
         self.items_brillo = {}
@@ -190,6 +192,8 @@ class AppAK820(rumps.App):
 
     def menu_teclas(self):
         teclas = rumps.MenuItem("Teclas")
+        teclas.add(rumps.MenuItem("Editor de teclas…", callback=self.abrir_editor))
+        teclas.add(None)
         teclas.add(rumps.MenuItem("Restaurar teclas de fábrica", callback=self.restaurar_teclas))
         teclas.add(rumps.MenuItem("Abrir guía de teclas", callback=self.guia_teclas))
         return teclas
@@ -234,6 +238,9 @@ class AppAK820(rumps.App):
 
     def restaurar_teclas(self, _):
         self.ejecutar("Teclas", args_restaurar_teclas())
+
+    def abrir_editor(self, _):
+        self.editor.abrir()
 
     def guia_teclas(self, _):
         subprocess.run(["open", GUIA_TECLAS], check=False)
