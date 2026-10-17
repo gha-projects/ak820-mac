@@ -7,7 +7,7 @@ setup(
     options={"py2app": {
         "iconfile": "app/AK820.icns",
         "resources": ["editor", "docs/teclas.md"],
-        "includes": ["ak820", "ak820_editor"],
+        "includes": ["ak820", "ak820_editor", "ak820_ventana"],
         "plist": {
             "CFBundleName": "AK820",
             "CFBundleDisplayName": "AK820",

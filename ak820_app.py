@@ -28,6 +28,7 @@ import rumps
 
 import ak820
 import ak820_editor
+import ak820_ventana
 
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 # Dentro de AK820.app (py2app) la guía va en Contents/Resources (RESOURCEPATH).
@@ -165,11 +166,13 @@ class AppAK820(rumps.App):
         self.brillo = 5
         self.ultima_luz = None              # (efecto, color) para reaplicar al cambiar el brillo
         self.editor = ak820_editor.Editor(self.candado)   # se arranca al abrirlo la primera vez
+        self.ventana = None                                 # la ventana propia, al abrirla
 
         self.item_estado = rumps.MenuItem("Comprobar teclado", callback=self.comprobar)
         self.items_brillo = {}
         self.menu = [
             self.item_estado,
+            rumps.MenuItem("Abrir AK820…", callback=self.abrir_editor),
             None,
             self.menu_reloj(),
             self.menu_luces(),
@@ -292,7 +295,10 @@ class AppAK820(rumps.App):
         self.ejecutar("Teclas", args_restaurar_teclas())
 
     def abrir_editor(self, _):
-        self.editor.abrir()
+        url = self.editor.iniciar()
+        if self.ventana is None:
+            self.ventana = ak820_ventana.Ventana.alloc().initConUrl_(url)
+        self.ventana.mostrar()
 
     def guia_teclas(self, _):
         subprocess.run(["open", GUIA_TECLAS], check=False)

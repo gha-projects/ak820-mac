@@ -84,10 +84,12 @@ tiene que estar **por cable** (y en modo cable, no en Bluetooth ni 2.4G).
 
 ### Editor de teclas
 
-**Teclas → Editor de teclas…** abre en el navegador un dibujo del teclado: pinchas una
-tecla, eliges qué hace (otra tecla o un atajo, multimedia, ratón, escribir un texto o
-varias teclas a la vez), en la capa normal o en la de Fn, y pulsas **Enviar al teclado**.
-Sin la app: `python3 ak820_editor.py`.
+**Abrir AK820…** (o Teclas → Editor de teclas…) abre la ventana de la app con un dibujo
+del teclado: pinchas una tecla, eliges qué hace (otra tecla o un atajo, multimedia,
+ratón, escribir un texto o varias teclas a la vez), en la capa normal o en la de Fn, y
+pulsas **Enviar al teclado**. Mientras la ventana está abierta, AK820 sale en el Dock y
+en Cmd+Tab. Sin la app, la misma página se abre en el navegador con
+`python3 ak820_editor.py`.
 
 La página solo funciona en este Mac (`127.0.0.1`) y con la clave que pone la app en la
 dirección, así que ninguna otra web puede tocar el teclado.
