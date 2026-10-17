@@ -106,7 +106,8 @@ class ConTecladoFalso(unittest.TestCase):
         for parche in (mock.patch.object(ak820, "hid", HidFalso(self.teclado)),
                        mock.patch.object(ak820.time, "sleep", lambda _s: None),
                        mock.patch.object(ak820, "TECLAS_GUARDADAS", os.path.join(carpeta.name, "teclas.json")),
-                       mock.patch.object(ak820, "AJUSTES_GUARDADOS", os.path.join(carpeta.name, "sistema.json"))):
+                       mock.patch.object(ak820, "AJUSTES_GUARDADOS", os.path.join(carpeta.name, "sistema.json")),
+                       mock.patch.object(ak820, "PANTALLA_GUARDADA", os.path.join(carpeta.name, "pantalla.json"))):
             parche.start()
             self.addCleanup(parche.stop)
 
@@ -267,6 +268,7 @@ class OtrasOrdenes(ConTecladoFalso):
         self.assertEqual(codigo, 0)
         self.assertEqual(self.teclado.ordenes(), [0x18, 0x28, 0x02])
         self.assertEqual(self.teclado.datos()[3:8], bytes([26, 10, 17, 12, 34]))
+        self.assertEqual(ak820.modo_pantalla(), "reloj")
 
     def test_luces(self):
         codigo, _ = self.orden("luces", "fijo", "--color", "0000FF", "--brillo", "3")
@@ -286,6 +288,7 @@ class OtrasOrdenes(ConTecladoFalso):
         self.assertEqual((aviso[2], aviso[8], aviso[9]), (1, 9, 0))       # hueco 1, 9 bloques
         self.assertEqual(len(self.teclado.bloques), 9)
         self.assertTrue(all(len(b) == 4097 for b in self.teclado.bloques))  # 0 + 4096
+        self.assertEqual(ak820.modo_pantalla(), "imagen")
 
 
 # --- App y editor -------------------------------------------------------------------
@@ -300,6 +303,25 @@ class App(unittest.TestCase):
         self.assertIn("No encuentro el teclado", ak820_app.resumen("No encuentro el teclado por cable.", 1))
         self.assertEqual(ak820_app.resumen("a\nb\nc\nd", 0), "b\nc\nd")
         self.assertEqual(ak820_app.resumen("a\nb\nc\nd", 0, completo=True), "a\nb\nc\nd")
+
+
+class HoraAlConectar(unittest.TestCase):
+    def test_pone_la_hora_al_conectar_solo_con_el_reloj_en_pantalla(self):
+        import ak820_app
+        carpeta = tempfile.TemporaryDirectory()
+        self.addCleanup(carpeta.cleanup)
+        with mock.patch.object(ak820_app, "PREFERENCIAS", os.path.join(carpeta.name, "app.json")), \
+             mock.patch.object(ak820, "PANTALLA_GUARDADA", os.path.join(carpeta.name, "pantalla.json")):
+            app = ak820_app.AppAK820()
+            llamadas = []
+            app.ejecutar = lambda _titulo, argumentos, **_kw: llamadas.append(argumentos) or True
+            for conectado, modo, esperadas in [(False, "reloj", 0), (True, "reloj", 1), (True, "reloj", 1),
+                                               (False, "reloj", 1), (True, "imagen", 1)]:
+                ak820.guardar_modo_pantalla(modo)
+                with mock.patch.object(ak820, "buscar_interfaz", lambda *_a: {"path": b"x"} if conectado else None):
+                    app.vigilar(None)
+                self.assertEqual(len(llamadas), esperadas)
+            self.assertEqual(llamadas[0], [["reloj"]])
 
 
 class Editor(ConTecladoFalso):

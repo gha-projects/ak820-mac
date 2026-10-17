@@ -15,6 +15,7 @@ hilo principal, con un temporizador que recoge lo que dejan los hilos.
 """
 import contextlib
 import io
+import json
 import os
 import queue
 import re
@@ -45,6 +46,25 @@ EFECTOS_CON_COLOR = {"Fijo": "fijo", "Respirar": "respirar"}
 REPOSOS = {"1 minuto": "1", "5 minutos": "5", "30 minutos": "30", "Nunca": "nunca"}
 MODOS_FN = {"Solo mientras se mantiene (de fábrica)": "mantener", "Pulsar para activar/desactivar": "alternar"}
 TIPOS_IMAGEN = ["png", "jpg", "jpeg", "gif", "bmp", "webp", "tiff"]
+SEGUNDOS_VIGILAR = 3                 # cada cuánto se mira si el teclado está conectado
+PREFERENCIAS = os.path.expanduser("~/Library/Application Support/ak820-mac/app.json")
+PREFERENCIAS_DEFECTO = {"hora_al_conectar": True}
+
+
+def cargar_preferencias():
+    preferencias = dict(PREFERENCIAS_DEFECTO)
+    try:
+        with open(PREFERENCIAS) as f:
+            preferencias.update({k: v for k, v in json.load(f).items() if k in preferencias})
+    except (OSError, ValueError, AttributeError):
+        pass
+    return preferencias
+
+
+def guardar_preferencias(preferencias):
+    os.makedirs(os.path.dirname(PREFERENCIAS), exist_ok=True)
+    with open(PREFERENCIAS, "w") as f:
+        json.dump(preferencias, f, indent=2)
 
 
 # --- Argumentos para ak820.main (funciones puras, fáciles de probar) --------
@@ -124,7 +144,9 @@ class AppAK820(rumps.App):
         super().__init__("AK820", title=TITULO, quit_button="Salir")
         self.candado = threading.Lock()
         self.mensajes = queue.Queue()      # (título, mensaje, bien, avisar) que dejan los hilos
-        self.estado_teclado = None          # texto para el primer elemento del menú
+        self.preferencias = cargar_preferencias()
+        self.conectado = None               # None hasta la primera comprobación
+        self.reloj_pendiente = False        # poner la hora en cuanto el teclado esté libre
         self.hilo = None
         self.progreso = None                # % de la imagen que se está enviando
         self.hecho_hasta = 0                # hasta cuándo se ve el ✓ en el icono
@@ -137,7 +159,7 @@ class AppAK820(rumps.App):
         self.menu = [
             self.item_estado,
             None,
-            rumps.MenuItem("Poner el reloj en hora", callback=self.reloj),
+            self.menu_reloj(),
             self.menu_luces(),
             rumps.MenuItem("Imagen o GIF en la pantalla…", callback=self.imagen),
             self.menu_reposo(),
@@ -146,8 +168,21 @@ class AppAK820(rumps.App):
             None,
         ]
         rumps.Timer(self.atender, 0.3).start()
+        rumps.Timer(self.vigilar, SEGUNDOS_VIGILAR).start()
 
     # --- Construcción del menú -------------------------------------------------
+    def menu_reloj(self):
+        reloj = rumps.MenuItem("Reloj")
+        reloj.add(rumps.MenuItem("Poner en hora ahora", callback=self.reloj))
+        self.item_hora_auto = rumps.MenuItem("Ponerla sola al conectar el teclado",
+                                             callback=self.cambiar_hora_auto)
+        self.item_hora_auto.state = int(self.preferencias["hora_al_conectar"])
+        reloj.add(self.item_hora_auto)
+        reloj.add(None)
+        aviso = rumps.MenuItem("(no se pone sola si la pantalla tiene una imagen)")
+        reloj.add(aviso)
+        return reloj
+
     def menu_luces(self):
         luces = rumps.MenuItem("Luces")
         for nombre, efecto in EFECTOS_CON_COLOR.items():
@@ -200,10 +235,15 @@ class AppAK820(rumps.App):
 
     # --- Acciones ------------------------------------------------------------
     def comprobar(self, _):
-        self.ejecutar("Teclado", [["buscar"]], es_comprobacion=True, avisar=True)
+        self.ejecutar("Teclado", [["buscar"]], es_comprobacion=True, avisar="siempre")
 
     def reloj(self, _):
         self.ejecutar("Reloj", [["reloj"]])
+
+    def cambiar_hora_auto(self, item):
+        item.state = int(not item.state)
+        self.preferencias["hora_al_conectar"] = bool(item.state)
+        guardar_preferencias(self.preferencias)
 
     def accion_luz(self, efecto, color=None):
         def callback(_):
@@ -223,12 +263,12 @@ class AppAK820(rumps.App):
 
     def accion_sistema(self, opciones):
         def callback(_):
-            self.ejecutar("Sistema", [args_sistema(opciones)], avisar=True)
+            self.ejecutar("Sistema", [args_sistema(opciones)], avisar="siempre")
         return callback
 
     def accion_reposo(self, minutos):
         def callback(_):
-            self.ejecutar("Reposo", [args_reposo(minutos)], avisar=True)
+            self.ejecutar("Reposo", [args_reposo(minutos)], avisar="siempre")
         return callback
 
     def imagen(self, _):
@@ -246,12 +286,14 @@ class AppAK820(rumps.App):
         subprocess.run(["open", GUIA_TECLAS], check=False)
 
     # --- Ejecución en segundo plano -------------------------------------------
-    def ejecutar(self, titulo, lista_args, es_comprobacion=False, avisar=False):
+    def ejecutar(self, titulo, lista_args, es_comprobacion=False, avisar="error"):
         """Lanza una o varias órdenes de ak820.py en un hilo. False si ya hay una en curso.
 
-        Con avisar=True el resultado sale en una ventana aunque todo vaya bien."""
+        avisar: "siempre" (el resultado sale en una ventana), "error" (solo si falla) o
+        "nunca" (para lo que hace la app por su cuenta; queda en el registro)."""
         if not self.candado.acquire(blocking=False):
-            ventana(titulo, "Espera: hay otra operación en curso.")
+            if avisar != "nunca":
+                ventana(titulo, "Espera: hay otra operación en curso.")
             return False
         self.progreso = None
         self.title = TITULO_OCUPADO
@@ -275,12 +317,9 @@ class AppAK820(rumps.App):
                         print(f"Error: {e}")
                         codigo = 1
                 mensajes.append(resumen(salida.getvalue(), codigo, solo_ultima=es_comprobacion,
-                                        completo=avisar))
+                                        completo=avisar == "siempre"))
                 if codigo != 0:
                     break
-            if es_comprobacion:
-                self.estado_teclado = ("Teclado: conectado por cable ✓" if codigo == 0
-                                       else "Teclado: no está conectado por cable")
             self.mensajes.put((titulo, "\n".join(dict.fromkeys(mensajes)), codigo == 0, avisar))
         finally:
             self.candado.release()
@@ -296,15 +335,30 @@ class AppAK820(rumps.App):
             self.title = TITULO_HECHO
         else:
             self.title = TITULO
-        if self.estado_teclado:
-            self.item_estado.title = self.estado_teclado
         while not self.mensajes.empty():
             titulo, mensaje, bien, avisar = self.mensajes.get()
             if bien:
                 self.hecho_hasta = time.monotonic() + SEGUNDOS_HECHO
                 self.title = TITULO_HECHO
-            if avisar or not bien:
+            if avisar == "siempre" or (avisar == "error" and not bien):
                 ventana(titulo, mensaje)
+
+    def vigilar(self, _):
+        """Temporizador: ve si el teclado está conectado por cable y, al conectarlo, pone la hora."""
+        try:
+            conectado = ak820.buscar_interfaz() is not None
+        except Exception:                    # hidapi puede fallar un instante al (des)conectar
+            return
+        if conectado != self.conectado:
+            self.conectado = conectado
+            self.item_estado.title = ("Teclado: conectado por cable ✓" if conectado
+                                      else "Teclado: sin conectar por cable")
+            self.reloj_pendiente = conectado
+        if self.reloj_pendiente and not self.candado.locked():
+            self.reloj_pendiente = False
+            if self.preferencias["hora_al_conectar"] and ak820.modo_pantalla() == "reloj":
+                if not self.ejecutar("Reloj", [["reloj"]], avisar="nunca"):
+                    self.reloj_pendiente = True
 
 
 def elegir_imagen():

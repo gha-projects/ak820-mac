@@ -125,6 +125,9 @@ PAUSA_MACRO_MS = 15         # espera entre pulsaciones dentro de una macro
 # manda las dos capas y todas las macros juntas: el bloque de macros es uno solo para
 # las dos capas, y mandar solo una capa borraría las macros de la otra.
 TECLAS_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/teclas.json")
+# Lo último que se mandó a la pantalla ("reloj" o "imagen"): poner la hora vuelve a enseñar
+# el reloj, así que la app solo la pone sola si la pantalla ya estaba en el reloj.
+PANTALLA_GUARDADA = os.path.expanduser("~/Library/Application Support/ak820-mac/pantalla.json")
 CAPAS = {"normal": CMD_TECLAS, "fn": CMD_TECLAS_FN}
 NOMBRE_CAPA = {"normal": "capa normal", "fn": "capa con Fn"}
 
@@ -458,6 +461,7 @@ def cmd_reloj(args):
         time.sleep(0.1)     # margen para que el teclado aplique la hora
     finally:
         dispositivo.close()
+    guardar_modo_pantalla("reloj")
     print(f"Reloj del teclado puesto a {t:%d/%m/%Y %H:%M:%S}. Mira la pantalla.")
     return 0
 
@@ -591,6 +595,21 @@ def cmd_sistema(args):
     print("Ajustes del sistema enviados:")
     print(describir_ajustes(ajustes))
     return 0
+
+
+def modo_pantalla():
+    """'reloj' o 'imagen': lo último que se mandó a la pantalla desde este Mac."""
+    try:
+        with open(PANTALLA_GUARDADA) as f:
+            return "imagen" if json.load(f).get("modo") == "imagen" else "reloj"
+    except (OSError, ValueError, AttributeError):
+        return "reloj"
+
+
+def guardar_modo_pantalla(modo):
+    os.makedirs(os.path.dirname(PANTALLA_GUARDADA), exist_ok=True)
+    with open(PANTALLA_GUARDADA, "w") as f:
+        json.dump({"modo": modo}, f)
 
 
 def cargar_teclas():
@@ -845,6 +864,7 @@ def cmd_imagen(args):
     finally:
         control.close()
         datos.close()
+    guardar_modo_pantalla("imagen")
     print("Imagen enviada. Mira la pantalla del teclado.")
     print("Para volver al reloj: python3 ak820.py reloj")
     return 0
