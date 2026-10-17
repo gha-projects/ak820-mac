@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Editor de teclas · AK820</title>
+<title>AK820</title>
 <style>
   :root {
     --fondo: #f2f2f5; --panel: #ffffff; --texto: #1d1d1f; --suave: #6e6e73; --borde: #d2d2d7;
@@ -80,19 +80,58 @@
   #mensaje.bien { display: block; background: var(--bien-suave); color: var(--bien); }
   #mensaje.error { display: block; background: var(--error-suave); color: var(--error); }
   #mensaje.info { display: block; background: var(--acento-suave); color: var(--acento-texto); }
+  [hidden] { display: none !important; }
+  .conexion { font-size: 13px; color: var(--suave); display: inline-flex; align-items: center; gap: 6px; }
+  .conexion::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--suave); }
+  .conexion.si::before { background: var(--bien); }
+  .conexion.no::before { background: var(--error); }
+  .cabecera-seccion { margin-bottom: 12px; }
+  .tarjeta h2 { font-size: 16px; margin: 22px 0 8px; }
+  .tarjeta h2:first-child { margin-top: 0; }
+  .muestras { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .muestra { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--borde); cursor: pointer; padding: 0; }
+  .muestra[aria-pressed="true"] { outline: 3px solid var(--acento); outline-offset: 2px; }
+  input[type=color] { width: 46px; height: 32px; border: 1px solid var(--borde); border-radius: 8px; background: var(--panel); padding: 2px; cursor: pointer; }
+  .deslizadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 28px; margin-top: 8px; }
+  .deslizadores label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+  .deslizadores .valor { color: var(--suave); font-weight: 400; font-size: 13px; }
+  input[type=range] { width: 100%; accent-color: var(--acento); }
+  .estado-linea { color: var(--suave); font-size: 13px; margin: 14px 0 0; min-height: 1.4em; }
+  .pantalla { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  .vista { width: 256px; height: 256px; border-radius: 20px; background: #0b0c10; border: 10px solid #2a2b31;
+           display: grid; place-items: center; overflow: hidden; flex: none; }
+  .vista.encima { outline: 3px dashed var(--acento); outline-offset: 4px; }
+  .vista img { width: 100%; height: 100%; object-fit: cover; }
+  .vista .reloj { font: 600 52px ui-monospace, Menlo, monospace; color: #78dcff; letter-spacing: 2px; }
+  .acciones { flex: 1 1 320px; }
+  .acciones h2 { margin-top: 0; }
+  progress { width: 100%; height: 10px; accent-color: var(--acento); margin-top: 14px; }
+  #ajuste-fn .opciones { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); max-width: 760px; }
+  [data-pestana="ajustes"] .deslizadores { max-width: 440px; }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>Editor de teclas <small>Ajazz AK820</small></h1>
+    <h1>AK820 <small>Ajazz AK820 Pro</small></h1>
+    <div class="segmentos" role="group" aria-label="Secciones">
+      <button type="button" data-ir="teclas" aria-pressed="true">Teclas</button>
+      <button type="button" data-ir="luces" aria-pressed="false">Luces</button>
+      <button type="button" data-ir="pantalla" aria-pressed="false">Pantalla</button>
+      <button type="button" data-ir="ajustes" aria-pressed="false">Ajustes</button>
+    </div>
+    <span id="conexion" class="conexion">Comprobando…</span>
+  </header>
+
+  <p id="mensaje" role="status"></p>
+
+  <div data-pestana="teclas">
+  <div class="cabecera-seccion">
     <div class="segmentos" role="group" aria-label="Capa">
       <button type="button" data-capa="normal" aria-pressed="true">Capa normal</button>
       <button type="button" data-capa="fn" aria-pressed="false">Capa Fn (Fn + tecla)</button>
     </div>
-  </header>
-
-  <p id="mensaje" role="status"></p>
+  </div>
 
   <section class="tarjeta" id="zona-teclado">
     <div id="teclado" aria-label="Teclado"></div>
@@ -106,6 +145,73 @@
   <section class="tarjeta" id="panel">
     <p class="vacio">Pincha una tecla del dibujo para cambiar lo que hace.</p>
   </section>
+  </div>
+
+  <div data-pestana="luces" hidden>
+    <section class="tarjeta">
+      <h2>Efecto</h2>
+      <div class="opciones" id="efectos"></div>
+      <h2>Color</h2>
+      <div class="muestras" id="muestras">
+        <input type="color" id="color" title="Otro color">
+        <label class="chip"><input type="checkbox" id="arcoiris"> Arcoíris (todos los colores)</label>
+      </div>
+      <div class="deslizadores">
+        <label>Brillo <input type="range" id="brillo" min="1" max="5"><span class="valor" id="brillo-valor"></span></label>
+        <label>Velocidad <input type="range" id="velocidad" min="0" max="5"><span class="valor" id="velocidad-valor"></span></label>
+        <label>Dirección <select id="direccion"></select></label>
+      </div>
+      <div class="botones"><button type="button" class="boton" id="apagar-luces">Apagar las luces</button></div>
+      <p class="estado-linea" id="estado-luces"></p>
+    </section>
+  </div>
+
+  <div data-pestana="pantalla" hidden>
+    <section class="tarjeta pantalla">
+      <div class="vista" id="vista" title="Puedes arrastrar aquí una imagen o un GIF">
+        <img id="vista-img" alt="" hidden>
+        <span class="reloj" id="vista-reloj">12:34</span>
+      </div>
+      <div class="acciones">
+        <h2>Pantalla del teclado</h2>
+        <p class="nota" id="estado-pantalla"></p>
+        <input type="file" id="archivo" accept="image/*" hidden>
+        <div class="botones">
+          <button type="button" class="boton" id="elegir">Elegir imagen o GIF…</button>
+          <button type="button" class="boton principal" id="enviar-imagen" disabled>Enviar a la pantalla</button>
+        </div>
+        <progress id="progreso" max="100" value="0" hidden></progress>
+        <div class="botones">
+          <button type="button" class="boton" id="volver-reloj">Volver al reloj y ponerlo en hora</button>
+        </div>
+        <p class="nota">Se recorta al centro a 128 × 128 píxeles. Los GIF pueden tener hasta 140
+          fotogramas (los demás se cortan) y tardan unos segundos en subir. También puedes
+          arrastrar el archivo encima del recuadro.</p>
+      </div>
+    </section>
+  </div>
+
+  <div data-pestana="ajustes" hidden>
+    <section class="tarjeta">
+      <h2>Tecla Fn</h2>
+      <div id="ajuste-fn"></div>
+      <h2>Apagar las luces si no se usa</h2>
+      <div class="segmentos" id="ajuste-reposo"></div>
+      <p class="nota">Solo con batería (por Bluetooth o 2.4G): enchufado por cable no se apagan.</p>
+      <h2>Tiempo de respuesta de las teclas</h2>
+      <div class="deslizadores">
+        <label>Nivel <input type="range" id="respuesta" min="1" max="5"><span class="valor" id="respuesta-valor"></span></label>
+      </div>
+      <p class="nota">1 es el más rápido y 5 el más lento; de fábrica, 2. Escribiendo normal no se nota.</p>
+      <h2>Bloqueos (solo en modo Windows)</h2>
+      <div class="fila" id="ajuste-bloqueos"></div>
+      <div class="botones">
+        <button type="button" class="boton principal" id="guardar-ajustes">Guardar en el teclado</button>
+        <button type="button" class="boton" id="ajustes-fabrica">Valores de fábrica</button>
+      </div>
+      <p class="estado-linea" id="estado-ajustes"></p>
+    </section>
+  </div>
 </main>
 
 <div id="barra">
@@ -217,7 +323,8 @@ function avisar(texto, tipo) {
 // --- Dibujo del teclado ----------------------------------------------------------------
 function dibujarTeclado() {
   const zona = document.getElementById("teclado");
-  const escala = Math.min(1.65, (document.getElementById("zona-teclado").clientWidth - 34) / ANCHO_TECLADO);
+  const disponible = document.getElementById("zona-teclado").clientWidth - 34;
+  const escala = disponible > 0 ? Math.min(1.65, disponible / ANCHO_TECLADO) : 1;
   zona.style.width = ANCHO_TECLADO * escala + "px";
   zona.style.height = ALTO_TECLADO * escala + "px";
   zona.replaceChildren();
@@ -585,35 +692,339 @@ for (const b of document.querySelectorAll("[data-capa]")) {
   });
 }
 window.addEventListener("resize", () => { if (catalogo) dibujarTeclado(); });
-// Al volver a la pestaña, se recoge lo que se haya cambiado desde fuera (terminal o app).
-window.addEventListener("focus", async () => {
-  if (!catalogo || enviando) return;
-  let r;
-  try { r = await api("/api/estado"); } catch (e) { return; }
-  if (igual(r.config, guardado)) return;
-  guardado = r.config;
-  if (pendientes()) {
-    avisar("Las teclas se han cambiado desde fuera del editor. Tus cambios sin enviar siguen aquí; " +
-           "«Deshacer cambios» enseña lo que tiene ahora el teclado.", "info");
-  } else {
-    actual = copia(r.config);
-    avisar("Actualizado con los cambios hechos desde fuera del editor.", "info");
-  }
-  dibujarTeclado();
-  if (elegida) elegir(elegida);
-});
 window.addEventListener("beforeunload", (e) => {
   if (catalogo && pendientes()) { e.preventDefault(); e.returnValue = ""; }
+});
+
+// --- Pestañas ------------------------------------------------------------------------------
+function irA(nombre) {
+  for (const d of document.querySelectorAll("[data-pestana]")) d.hidden = d.dataset.pestana !== nombre;
+  for (const b of document.querySelectorAll("[data-ir]")) b.setAttribute("aria-pressed", String(b.dataset.ir === nombre));
+  document.getElementById("barra").hidden = nombre !== "teclas";
+  avisar("", "");
+  try { localStorage.setItem("ak820-pestana", nombre); } catch (e) { /* sin almacenamiento: da igual */ }
+  if (nombre === "teclas" && catalogo) dibujarTeclado();
+}
+for (const b of document.querySelectorAll("[data-ir]")) b.addEventListener("click", () => irA(b.dataset.ir));
+
+// --- Conexión (cada 3 s) ---------------------------------------------------------------------
+async function vigilarConexion() {
+  const c = document.getElementById("conexion");
+  try {
+    const r = await api("/api/conexion");
+    c.textContent = r.conectado ? "Conectado por cable" : "Sin conectar por cable";
+    c.className = "conexion " + (r.conectado ? "si" : "no");
+    if (r.progreso != null) document.getElementById("progreso").value = r.progreso;
+  } catch (e) {
+    c.textContent = "Ventana sin conexión con la app";
+    c.className = "conexion no";
+  }
+}
+setInterval(vigilarConexion, 3000);
+
+// --- Luces ---------------------------------------------------------------------------------------
+const NOMBRE_EFECTO = { fijo: "Fijo", respirar: "Respirar", espectro: "Espectro", rodar: "Ola", ondas: "Ondas",
+  colores: "Colores", desplazar: "Desplazar", girar: "Girar", fluir: "Fluir", latido: "Latido", lluvia: "Lluvia",
+  brillos: "Destellos", explosion: "Explosión", lanzar: "Lanzar", ondulas: "Ondulaciones", inclinar: "Inclinar",
+  lanzadera: "Lanzadera", "una-tecla": "Al pulsar se enciende", "una-tecla-off": "Al pulsar se apaga" };
+const PRIMEROS_EFECTOS = ["fijo", "respirar", "espectro", "rodar"];
+const NOMBRE_DIRECCION = { izquierda: "Hacia la izquierda", derecha: "Hacia la derecha", arriba: "Hacia arriba", abajo: "Hacia abajo" };
+const MUESTRAS = { FF0000: "Rojo", FF6000: "Naranja", FFD000: "Amarillo", "00FF00": "Verde", "00FFFF": "Cian",
+  "0000FF": "Azul", "8000FF": "Morado", FF00FF: "Rosa", FFFFFF: "Blanco" };
+let luces = { efecto: "fijo", color: "0000FF", brillo: 5, velocidad: 3, direccion: "izquierda", arcoiris: false };
+let lucesApagadas = false, enviandoLuces = false, lucesOtraVez = false, esperaLuces = null;
+
+function prepararLuces() {
+  const caja = document.getElementById("efectos");
+  const orden = [...PRIMEROS_EFECTOS, ...catalogo.efectos.filter((e) => !PRIMEROS_EFECTOS.includes(e))];
+  for (const e of orden) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.efecto = e;
+    b.textContent = NOMBRE_EFECTO[e] || e;
+    b.addEventListener("click", () => cambiarLuces({ efecto: e }));
+    caja.append(b);
+  }
+  const muestras = document.getElementById("muestras");
+  for (const [hexa, nombre] of Object.entries(MUESTRAS).reverse()) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "muestra";
+    b.dataset.color = hexa;
+    b.title = nombre;
+    b.style.background = "#" + hexa;
+    b.addEventListener("click", () => cambiarLuces({ color: hexa, arcoiris: false }));
+    muestras.prepend(b);
+  }
+  document.getElementById("color").addEventListener("input", (e) =>
+    cambiarLuces({ color: e.target.value.slice(1).toUpperCase(), arcoiris: false }));
+  document.getElementById("arcoiris").addEventListener("change", (e) => cambiarLuces({ arcoiris: e.target.checked }));
+  document.getElementById("brillo").addEventListener("input", (e) => cambiarLuces({ brillo: +e.target.value }));
+  document.getElementById("velocidad").addEventListener("input", (e) => cambiarLuces({ velocidad: +e.target.value }));
+  const direccion = document.getElementById("direccion");
+  for (const d of catalogo.direcciones) {
+    const o = document.createElement("option");
+    o.value = d;
+    o.textContent = NOMBRE_DIRECCION[d] || d;
+    direccion.append(o);
+  }
+  direccion.addEventListener("change", () => cambiarLuces({ direccion: direccion.value }));
+  document.getElementById("apagar-luces").addEventListener("click", apagarLuces);
+}
+
+function dibujarLuces() {
+  for (const b of document.querySelectorAll("#efectos button"))
+    b.setAttribute("aria-pressed", String(!lucesApagadas && b.dataset.efecto === luces.efecto));
+  for (const b of document.querySelectorAll(".muestra"))
+    b.setAttribute("aria-pressed", String(!luces.arcoiris && b.dataset.color === luces.color));
+  document.getElementById("color").value = "#" + luces.color.toLowerCase();
+  document.getElementById("arcoiris").checked = !!luces.arcoiris;
+  document.getElementById("brillo").value = Math.max(1, luces.brillo);
+  document.getElementById("brillo-valor").textContent = `${Math.max(1, luces.brillo)} de 5`;
+  const velocidad = document.getElementById("velocidad");
+  velocidad.value = luces.velocidad;
+  velocidad.disabled = luces.efecto === "fijo";
+  document.getElementById("velocidad-valor").textContent = luces.efecto === "fijo" ? "(el efecto Fijo no se mueve)" : `${luces.velocidad} de 5`;
+  document.getElementById("direccion").value = luces.direccion;
+}
+
+function cambiarLuces(cambio) {
+  Object.assign(luces, cambio);
+  lucesApagadas = false;
+  dibujarLuces();
+  clearTimeout(esperaLuces);
+  esperaLuces = setTimeout(enviarLuces, 300);       // los deslizadores mandan muchos cambios seguidos
+}
+
+async function enviarLuces() {
+  if (enviandoLuces) { lucesOtraVez = true; return; }
+  enviandoLuces = true;
+  const estado = document.getElementById("estado-luces");
+  estado.textContent = "Aplicando…";
+  try {
+    const r = await api("/api/luces", { luces });
+    estado.textContent = r.ok ? "Aplicado ✓" : "";
+    if (!r.ok) avisar(r.mensaje, "error");
+  } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
+  enviandoLuces = false;
+  if (lucesOtraVez) { lucesOtraVez = false; enviarLuces(); }
+}
+
+async function apagarLuces() {
+  const estado = document.getElementById("estado-luces");
+  estado.textContent = "Apagando…";
+  try {
+    const r = await api("/api/apagar", {});
+    if (r.ok) { lucesApagadas = true; dibujarLuces(); estado.textContent = "Luces apagadas. Elige un efecto para encenderlas."; }
+    else { estado.textContent = ""; avisar(r.mensaje, "error"); }
+  } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
+}
+
+function ponerLuces(guardadas) {
+  if (!guardadas) return;
+  if (guardadas.efecto === "apagado") { lucesApagadas = true; return; }
+  lucesApagadas = false;
+  luces = { ...luces, ...guardadas };
+}
+
+// --- Pantalla ----------------------------------------------------------------------------------
+let modoPantalla = "reloj", archivoElegido = null, enviandoImagen = false;
+
+function prepararPantalla() {
+  const archivo = document.getElementById("archivo");
+  document.getElementById("elegir").addEventListener("click", () => archivo.click());
+  archivo.addEventListener("change", () => { if (archivo.files[0]) elegirArchivo(archivo.files[0]); archivo.value = ""; });
+  const vista = document.getElementById("vista");
+  vista.addEventListener("dragover", (e) => { e.preventDefault(); vista.classList.add("encima"); });
+  vista.addEventListener("dragleave", () => vista.classList.remove("encima"));
+  vista.addEventListener("drop", (e) => {
+    e.preventDefault();
+    vista.classList.remove("encima");
+    if (e.dataTransfer.files[0]) elegirArchivo(e.dataTransfer.files[0]);
+  });
+  document.getElementById("enviar-imagen").addEventListener("click", enviarImagen);
+  document.getElementById("volver-reloj").addEventListener("click", volverAlReloj);
+  setInterval(dibujarPantalla, 20000);              // la hora del dibujo
+}
+
+function elegirArchivo(archivo) {
+  if (!archivo.type.startsWith("image/")) { avisar("Eso no es una imagen.", "error"); return; }
+  if (archivo.size > 30 * 1024 * 1024) { avisar("La imagen es demasiado grande (máximo 30 MB).", "error"); return; }
+  archivoElegido = archivo;
+  const img = document.getElementById("vista-img");
+  if (img.src) URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(archivo);
+  avisar("", "");
+  dibujarPantalla();
+}
+
+function dibujarPantalla() {
+  const img = document.getElementById("vista-img");
+  img.hidden = !archivoElegido;
+  const reloj = document.getElementById("vista-reloj");
+  reloj.hidden = !!archivoElegido;
+  reloj.textContent = new Date().toTimeString().slice(0, 5);
+  document.getElementById("estado-pantalla").textContent =
+    (modoPantalla === "imagen" ? "Ahora enseña una imagen o un GIF." : "Ahora enseña el reloj.") +
+    (archivoElegido ? ` Elegido: ${archivoElegido.name}.` : "");
+  document.getElementById("enviar-imagen").disabled = !archivoElegido || enviandoImagen;
+  document.getElementById("volver-reloj").disabled = enviandoImagen;
+  document.getElementById("elegir").disabled = enviandoImagen;
+}
+
+async function enviarImagen() {
+  enviandoImagen = true;
+  const progreso = document.getElementById("progreso");
+  progreso.value = 0;
+  progreso.hidden = false;
+  dibujarPantalla();
+  avisar("Enviando a la pantalla…", "info");
+  const sondeo = setInterval(vigilarConexion, 500);
+  try {
+    const r = await fetch("/api/imagen", { method: "POST", body: archivoElegido,
+      headers: { "X-Clave": CLAVE, "Content-Type": archivoElegido.type || "application/octet-stream" } });
+    if (r.status === 403) throw new Error("Esta ventana es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎.");
+    const datos = await r.json();
+    if (datos.ok) {
+      modoPantalla = datos.pantalla;
+      archivoElegido = null;
+      avisar("La imagen ya está en la pantalla del teclado.", "bien");
+    } else {
+      avisar(datos.mensaje, "error");
+    }
+  } catch (e) {
+    avisar(e.message.includes("Failed") || e.message.includes("Load") ? "La ventana ha perdido la conexión con la app." : e.message, "error");
+  }
+  clearInterval(sondeo);
+  progreso.hidden = true;
+  enviandoImagen = false;
+  dibujarPantalla();
+}
+
+async function volverAlReloj() {
+  try {
+    const r = await api("/api/reloj", {});
+    if (r.ok) {
+      modoPantalla = r.pantalla;
+      archivoElegido = null;
+      avisar("Reloj en hora y a la vista.", "bien");
+    } else {
+      avisar(r.mensaje, "error");
+    }
+  } catch (e) { avisar(e.message, "error"); }
+  dibujarPantalla();
+}
+
+// --- Ajustes ------------------------------------------------------------------------------------
+const NOMBRE_FN = { mantener: "Solo mientras se mantiene pulsada (de fábrica)", alternar: "Un toque la activa y otro la quita" };
+const NOMBRE_REPOSO = { "1": "1 minuto", "5": "5 minutos", "30": "30 minutos", nunca: "Nunca" };
+const NOMBRE_BLOQUEO = { win: "Tecla Win", altf4: "Alt + F4", alttab: "Alt + Tab" };
+let ajustesGuardados = null, ajustes = null;
+
+function prepararAjustes() {
+  document.getElementById("respuesta").addEventListener("input", (e) => { ajustes.respuesta = +e.target.value; dibujarAjustes(); });
+  document.getElementById("guardar-ajustes").addEventListener("click", () => guardarAjustes({ ajustes }));
+  document.getElementById("ajustes-fabrica").addEventListener("click", () => guardarAjustes({ ajustes: { fabrica: true } }));
+}
+
+function dibujarAjustes() {
+  if (!ajustes) return;
+  const fn = document.getElementById("ajuste-fn");
+  fn.replaceChildren(botonesOpciones(NOMBRE_FN, ajustes.fn, (v) => { ajustes.fn = v; dibujarAjustes(); }));
+  fn.firstChild.style.margin = "0";
+  const reposo = document.getElementById("ajuste-reposo");
+  reposo.replaceChildren();
+  for (const valor of catalogo.reposo) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = NOMBRE_REPOSO[valor] + (valor === "5" ? " (de fábrica)" : "");
+    b.setAttribute("aria-pressed", String(valor === ajustes.reposo));
+    b.addEventListener("click", () => { ajustes.reposo = valor; dibujarAjustes(); });
+    reposo.append(b);
+  }
+  document.getElementById("respuesta").value = ajustes.respuesta;
+  document.getElementById("respuesta-valor").textContent = `${ajustes.respuesta} de 5`;
+  const bloqueos = document.getElementById("ajuste-bloqueos");
+  bloqueos.replaceChildren();
+  for (const [clave, nombre] of Object.entries(NOMBRE_BLOQUEO)) {
+    const l = document.createElement("label");
+    l.className = "chip";
+    const c = document.createElement("input");
+    c.type = "checkbox";
+    c.checked = !!ajustes.bloquear[clave];
+    c.addEventListener("change", () => { ajustes.bloquear[clave] = c.checked; dibujarAjustes(); });
+    l.append(c, nombre);
+    bloqueos.append(l);
+  }
+  const cambiados = !igual(ajustes, ajustesGuardados);
+  const guardar = document.getElementById("guardar-ajustes");
+  guardar.disabled = !cambiados;
+  guardar.textContent = cambiados ? "Guardar en el teclado" : "Guardado";
+}
+
+async function guardarAjustes(cuerpo) {
+  const estado = document.getElementById("estado-ajustes");
+  estado.textContent = "Enviando…";
+  try {
+    const r = await api("/api/sistema", cuerpo);
+    if (r.ok) {
+      ajustesGuardados = r.ajustes;
+      ajustes = copia(r.ajustes);
+      estado.textContent = "Guardado en el teclado ✓";
+    } else {
+      estado.textContent = "";
+      avisar(r.mensaje, "error");
+    }
+  } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
+  dibujarAjustes();
+}
+
+// --- Carga y vuelta a la ventana -----------------------------------------------------------------
+function aplicarEstado(r, primeraVez) {
+  if (primeraVez) {
+    distribucion = r.distribucion;
+    catalogo = r.catalogo;
+    guardado = r.config;
+    actual = copia(r.config);
+  } else if (!igual(r.config, guardado)) {
+    guardado = r.config;
+    if (pendientes()) {
+      avisar("Las teclas se han cambiado desde fuera de esta ventana. Tus cambios sin enviar siguen aquí; " +
+             "«Deshacer cambios» enseña lo que tiene ahora el teclado.", "info");
+    } else {
+      actual = copia(r.config);
+    }
+    if (elegida) elegir(elegida);
+  }
+  if (!enviandoLuces) ponerLuces(r.luces);
+  if (!enviandoImagen) modoPantalla = r.pantalla;
+  if (!ajustes || igual(ajustes, ajustesGuardados)) { ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes); }
+  const c = document.getElementById("conexion");
+  c.textContent = r.conectado ? "Conectado por cable" : "Sin conectar por cable";
+  c.className = "conexion " + (r.conectado ? "si" : "no");
+  dibujarTeclado();
+  dibujarLuces();
+  dibujarPantalla();
+  dibujarAjustes();
+}
+
+// Al volver a la ventana, se recoge lo que se haya cambiado desde fuera (terminal o menú).
+window.addEventListener("focus", async () => {
+  if (!catalogo || enviando) return;
+  try { aplicarEstado(await api("/api/estado"), false); } catch (e) { /* se verá en el indicador */ }
 });
 
 (async () => {
   try {
     const r = await api("/api/estado");
-    distribucion = r.distribucion;
     catalogo = r.catalogo;
-    guardado = r.config;
-    actual = copia(r.config);
-    dibujarTeclado();
+    prepararLuces();
+    prepararPantalla();
+    prepararAjustes();
+    aplicarEstado(r, true);
+    let inicial = "teclas";
+    try { inicial = localStorage.getItem("ak820-pestana") || "teclas"; } catch (e) { /* da igual */ }
+    irA(document.querySelector(`[data-ir="${inicial}"]`) ? inicial : "teclas");
   } catch (e) {
     document.getElementById("estado").textContent = "";
     avisar(e.message, "error");

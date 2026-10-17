@@ -128,6 +128,8 @@ TECLAS_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/t
 # Lo último que se mandó a la pantalla ("reloj" o "imagen"): poner la hora vuelve a enseñar
 # el reloj, así que la app solo la pone sola si la pantalla ya estaba en el reloj.
 PANTALLA_GUARDADA = os.path.expanduser("~/Library/Application Support/ak820-mac/pantalla.json")
+# Las últimas luces enviadas (para que la ventana de la app enseñe lo que hay puesto).
+LUCES_GUARDADAS = os.path.expanduser("~/Library/Application Support/ak820-mac/luces.json")
 CAPAS = {"normal": CMD_TECLAS, "fn": CMD_TECLAS_FN}
 NOMBRE_CAPA = {"normal": "capa normal", "fn": "capa con Fn"}
 
@@ -491,6 +493,10 @@ def cmd_luces(args):
         time.sleep(0.1)
     finally:
         dispositivo.close()
+    os.makedirs(os.path.dirname(LUCES_GUARDADAS), exist_ok=True)
+    with open(LUCES_GUARDADAS, "w") as f:
+        json.dump({"efecto": args.efecto, "color": color.upper(), "brillo": args.brillo,
+                   "velocidad": args.velocidad, "direccion": args.direccion, "arcoiris": args.arcoiris}, f)
     print(f"Luces: {args.efecto}, color #{color.upper()}, brillo {brillo}, velocidad {velocidad}. Mira el teclado.")
     return 0
 
@@ -604,6 +610,16 @@ def modo_pantalla():
             return "imagen" if json.load(f).get("modo") == "imagen" else "reloj"
     except (OSError, ValueError, AttributeError):
         return "reloj"
+
+
+def cargar_luces():
+    """Las últimas luces enviadas desde este Mac, o None si no se sabe."""
+    try:
+        with open(LUCES_GUARDADAS) as f:
+            luces = json.load(f)
+        return luces if isinstance(luces, dict) and luces.get("efecto") in EFECTOS else None
+    except (OSError, ValueError):
+        return None
 
 
 def guardar_modo_pantalla(modo):

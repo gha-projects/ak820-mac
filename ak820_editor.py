@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-"""Editor de teclas del AK820 en el navegador.
+"""La ventana de AK820 (teclas, luces, pantalla y ajustes) servida como página web local.
 
 Un servidor local (solo en 127.0.0.1) sirve editor/index.html y aplica los cambios con
-las funciones de ak820.py. Para que ninguna otra página web pueda reprogramar el
-teclado, la API pide una clave que solo conoce la página abierta desde aquí (va en el
-#fragmento de la dirección, que el navegador no manda a ningún sitio) y se comprueba la
-cabecera Host.
+ak820.py. La app la enseña en su propia ventana (ak820_ventana.py); sin la app se abre
+en el navegador. Para que ninguna otra página web pueda tocar el teclado, la API pide
+una clave que solo conoce la página abierta desde aquí (va en el #fragmento de la
+dirección, que el navegador no manda a ningún sitio) y se comprueba la cabecera Host.
 
-Uso: python3 ak820_editor.py   (o, en la app, Teclas → Editor de teclas…)
+Uso: python3 ak820_editor.py   (o, en la app, Abrir AK820…)
 """
 import contextlib
 import io
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -25,15 +27,34 @@ import ak820
 CARPETA = os.path.join(os.environ.get("RESOURCEPATH") or os.path.dirname(os.path.abspath(__file__)), "editor")
 PUERTO = 8820
 MAX_CUERPO = 64 * 1024
+MAX_IMAGEN = 30 * 1024 * 1024
+PROGRESO = re.compile(r"(\d+) % enviado")
+COLOR = re.compile(r"^[0-9A-Fa-f]{6}$")
+BLOQUEOS = ("win", "altf4", "alttab")
+OCUPADO = "Espera: hay otra operación en curso con el teclado."
+SIN_TECLADO = ("No encuentro el teclado por cable. Conéctalo con el cable USB-C y ponlo en modo "
+               "cable: por Bluetooth o 2.4G no se puede configurar.")
+
+
+class Ocupado(Exception):
+    """Otra operación (de la ventana o del menú de la app) está usando el teclado."""
 
 
 class Copia(io.StringIO):
-    """Recoge lo que imprime ak820.py y lo copia también a la salida estándar (al registro)."""
+    """Recoge lo que imprime ak820.py, lo copia a la salida estándar (al registro) y
+    avisa del % enviado de las imágenes."""
+
+    def __init__(self, al_progresar=None):
+        super().__init__()
+        self.al_progresar = al_progresar
 
     def write(self, texto):
         if sys.__stdout__:
             sys.__stdout__.write(texto)
             sys.__stdout__.flush()
+        encontrado = PROGRESO.search(texto)
+        if encontrado and self.al_progresar:
+            self.al_progresar(int(encontrado.group(1)))
         return super().write(texto)
 
 
@@ -46,11 +67,33 @@ def catalogo():
         "raton": list(ak820.RATON) + ["doble_clic"],
         "modos": list(ak820.MODO_MACRO),
         "no_cambiables_fn": sorted(ak820.NOMBRE_TECLA[i] for i in ak820.NO_CAMBIABLES_FN),
+        "efectos": [e for e in ak820.EFECTOS if e != "apagado"],
+        "direcciones": list(ak820.DIRECCIONES),
+        "reposo": list(ak820.REPOSO),
+        "modos_fn": list(ak820.MODO_FN),
     }
 
 
+def conectado():
+    try:
+        return ak820.buscar_interfaz() is not None
+    except Exception:                              # hidapi puede fallar un instante al (des)conectar
+        return False
+
+
+def ajustes_para_pagina():
+    """Los ajustes del sistema guardados, con los nombres de las opciones de 'sistema'."""
+    ajustes = ak820.cargar_ajustes()
+    reposo = {v: k for k, v in ak820.REPOSO.items()}
+    fn = {v: k for k, v in ak820.MODO_FN.items()}
+    return {"fn": fn.get(ajustes["fn"], "mantener"), "reposo": reposo.get(ajustes["reposo"], "5"),
+            "respuesta": ajustes["respuesta"],
+            "bloquear": {b: bool(ajustes["bloquear_" + b]) for b in BLOQUEOS}}
+
+
+# --- Validación de lo que manda la página --------------------------------------------
 def validar(asignacion):
-    """(True, "") si la asignación vale; si no, (False, motivo)."""
+    """(True, "") si la asignación de una tecla vale; si no, (False, motivo)."""
     if not isinstance(asignacion, dict) or not isinstance(asignacion.get("destino"), str):
         return False, "Asignación no válida."
     try:
@@ -76,11 +119,62 @@ def limpiar(config):
     return limpia
 
 
+def numero(valor, minimo, maximo, nombre):
+    try:
+        n = int(valor)
+    except (TypeError, ValueError):
+        raise ValueError(f"{nombre} no válido.") from None
+    if not minimo <= n <= maximo:
+        raise ValueError(f"{nombre} tiene que ir de {minimo} a {maximo}.")
+    return n
+
+
+def args_luces(datos):
+    """Argumentos de 'luces' para lo que pide la página. Lanza ValueError si algo no vale."""
+    if not isinstance(datos, dict) or datos.get("efecto") not in ak820.EFECTOS:
+        raise ValueError("Efecto de luz no válido.")
+    color = str(datos.get("color", "FFFFFF")).lstrip("#")
+    if not COLOR.match(color):
+        raise ValueError("Color no válido.")
+    direccion = datos.get("direccion", "izquierda")
+    if direccion not in ak820.DIRECCIONES:
+        raise ValueError("Dirección no válida.")
+    argumentos = ["luces", datos["efecto"], "--color", color.upper(),
+                  "--brillo", str(numero(datos.get("brillo", 5), 0, 5, "El brillo")),
+                  "--velocidad", str(numero(datos.get("velocidad", 3), 0, 5, "La velocidad")),
+                  "--direccion", direccion]
+    if datos.get("arcoiris"):
+        argumentos.append("--arcoiris")
+    return argumentos
+
+
+def args_sistema(datos):
+    """Argumentos de 'sistema' para lo que pide la página. Lanza ValueError si algo no vale."""
+    if not isinstance(datos, dict):
+        raise ValueError("Ajustes no válidos.")
+    if datos.get("fabrica"):
+        return ["sistema", "--fabrica"]
+    if datos.get("fn") not in ak820.MODO_FN or datos.get("reposo") not in ak820.REPOSO:
+        raise ValueError("Ajustes no válidos.")
+    bloquear = datos.get("bloquear") or {}
+    argumentos = ["sistema", "--fn-modo", datos["fn"], "--reposo", datos["reposo"],
+                  "--respuesta", str(numero(datos.get("respuesta", 2), 1, 5, "El tiempo de respuesta"))]
+    si = [b for b in BLOQUEOS if bloquear.get(b)]
+    no = [b for b in BLOQUEOS if not bloquear.get(b)]
+    if si:
+        argumentos += ["--bloquear", *si]
+    if no:
+        argumentos += ["--desbloquear", *no]
+    return argumentos
+
+
+# --- El servidor ---------------------------------------------------------------------
 class Editor:
     def __init__(self, candado=None):
         self.candado = candado or threading.Lock()   # el mismo que la app: una operación a la vez
         self.clave = secrets.token_urlsafe(18)
         self.servidor = None
+        self.progreso = None                         # % de la imagen que se está enviando
 
     def iniciar(self):
         """Arranca el servidor en un hilo (si no estaba ya) y devuelve la dirección."""
@@ -97,28 +191,78 @@ class Editor:
         return f"http://127.0.0.1:{self.servidor.server_address[1]}/#clave={self.clave}"
 
     def abrir(self):
+        """Abre la página en el navegador (sin la app)."""
         subprocess.run(["open", self.iniciar()], check=False)
 
-    def enviar(self, config):
-        """Manda la configuración al teclado. Devuelve (bien, mensaje)."""
+    def _con_teclado(self, funcion):
+        """Ejecuta funcion() con el teclado reservado, recogiendo lo que imprime.
+
+        Devuelve (resultado, líneas impresas). Lanza Ocupado si el teclado está en uso.
+        """
         if not self.candado.acquire(blocking=False):
-            return False, "Espera: hay otra operación en curso con el teclado."
+            raise Ocupado()
+        self.progreso = None
         try:
-            salida = Copia()
+            salida = Copia(self.apuntar_progreso)
             with contextlib.redirect_stdout(salida):
-                try:
-                    bien = ak820.enviar_teclas(config)
-                except ValueError as e:
-                    return False, str(e)
-                except Exception as e:                     # p. ej. se desconecta a medias
-                    return False, f"Error: {e}"
-            lineas = [l.strip() for l in salida.getvalue().splitlines()
-                      if l.strip() and "repitiendo" not in l]
-            if bien:
-                return True, "Teclas guardadas en el teclado."
-            return False, " ".join(lineas) or "Algo ha fallado."
+                resultado = funcion()
+            return resultado, [l.strip() for l in salida.getvalue().splitlines() if l.strip()]
         finally:
+            self.progreso = None
             self.candado.release()
+
+    def apuntar_progreso(self, porcentaje):
+        self.progreso = porcentaje
+
+    def orden(self, argumentos):
+        """Ejecuta una orden de ak820.py. Devuelve (bien, mensaje)."""
+        def correr():
+            try:
+                return ak820.main(argumentos) or 0
+            except SystemExit as e:                     # argparse sale así si algo no cuadra
+                return e.code if isinstance(e.code, int) else 1
+        try:
+            codigo, lineas = self._con_teclado(correr)
+        except Ocupado:
+            return False, OCUPADO
+        except Exception as e:                          # p. ej. se desconecta a medias
+            return False, f"Error: {e}"
+        if codigo != 0 and any("No encuentro el teclado" in l for l in lineas):
+            return False, SIN_TECLADO
+        lineas = [l for l in lineas if "% enviado" not in l and "repitiendo" not in l
+                  and not l.startswith("Para volver")]
+        return codigo == 0, "\n".join(lineas[-5:]) or ("Hecho." if codigo == 0 else "Algo ha fallado.")
+
+    def enviar(self, config):
+        """Manda la configuración de teclas al teclado. Devuelve (bien, mensaje)."""
+        try:
+            bien, lineas = self._con_teclado(lambda: ak820.enviar_teclas(config))
+        except Ocupado:
+            return False, OCUPADO
+        except ValueError as e:
+            return False, str(e)
+        except Exception as e:
+            return False, f"Error: {e}"
+        if bien:
+            return True, "Teclas guardadas en el teclado."
+        if any("No encuentro el teclado" in l for l in lineas):
+            return False, SIN_TECLADO
+        return False, " ".join(l for l in lineas if "repitiendo" not in l) or "Algo ha fallado."
+
+    def imagen(self, datos):
+        """Pone en la pantalla una imagen o GIF (los bytes del archivo). Devuelve (bien, mensaje)."""
+        from PIL import Image
+        with tempfile.NamedTemporaryFile(delete=False) as archivo:
+            archivo.write(datos)
+        try:
+            try:
+                with Image.open(archivo.name) as prueba:
+                    prueba.verify()
+            except Exception:
+                return False, "Ese archivo no es una imagen que se pueda leer."
+            return self.orden(["imagen", archivo.name])
+        finally:
+            os.unlink(archivo.name)
 
 
 class Manejador(BaseHTTPRequestHandler):
@@ -147,23 +291,29 @@ class Manejador(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(datos)
 
-    def fichero(self, nombre, tipo):
-        with open(os.path.join(CARPETA, nombre), "rb") as f:
-            self.responder(200, f.read(), tipo)
+    def resultado(self, bien, mensaje, **extra):
+        self.responder(200, {"ok": bien, "mensaje": mensaje, **extra})
 
     def do_GET(self):
         if not self.host_valido():
             return self.responder(403, {"error": "Host no permitido"})
         ruta = self.path.split("?")[0]
         if ruta == "/":
-            return self.fichero("index.html", "text/html; charset=utf-8")
+            with open(os.path.join(CARPETA, "index.html"), "rb") as f:
+                return self.responder(200, f.read(), "text/html; charset=utf-8")
+        if not self.clave_valida():
+            return self.responder(403, {"error": "clave"})
+        editor = self.server.editor
         if ruta == "/api/estado":
-            if not self.clave_valida():
-                return self.responder(403, {"error": "clave"})
             with open(os.path.join(CARPETA, "distribucion.json"), encoding="utf-8") as f:
                 distribucion = json.load(f)
-            return self.responder(200, {"distribucion": distribucion, "config": ak820.cargar_teclas(),
-                                        "catalogo": catalogo()})
+            return self.responder(200, {
+                "distribucion": distribucion, "config": ak820.cargar_teclas(), "catalogo": catalogo(),
+                "luces": ak820.cargar_luces(), "pantalla": ak820.modo_pantalla(),
+                "ajustes": ajustes_para_pagina(), "conectado": conectado()})
+        if ruta == "/api/conexion":
+            return self.responder(200, {"conectado": conectado(), "ocupado": editor.candado.locked(),
+                                        "progreso": editor.progreso})
         self.responder(404, {"error": "no existe"})
 
     def do_POST(self):
@@ -171,33 +321,66 @@ class Manejador(BaseHTTPRequestHandler):
             return self.responder(403, {"error": "Host no permitido"})
         if not self.clave_valida():
             return self.responder(403, {"error": "clave"})
-        if not self.headers.get("Content-Type", "").startswith("application/json"):
-            return self.responder(415, {"error": "se espera JSON"})
+        ruta = self.path.split("?")[0]
+        tipo = self.headers.get("Content-Type", "")
         largo = int(self.headers.get("Content-Length") or 0)
+        editor = self.server.editor
+
+        if ruta == "/api/imagen":                     # el archivo tal cual, no JSON
+            if not (tipo.startswith("image/") or tipo == "application/octet-stream"):
+                return self.responder(415, {"error": "se espera una imagen"})
+            if not 0 < largo <= MAX_IMAGEN:
+                return self.resultado(False, "La imagen es demasiado grande (máximo 30 MB).")
+            bien, mensaje = editor.imagen(self.rfile.read(largo))
+            return self.resultado(bien, mensaje, pantalla=ak820.modo_pantalla())
+
+        if not tipo.startswith("application/json"):
+            return self.responder(415, {"error": "se espera JSON"})
         if not 0 < largo <= MAX_CUERPO:
             return self.responder(413, {"error": "tamaño no válido"})
         try:
             datos = json.loads(self.rfile.read(largo))
         except ValueError:
             return self.responder(400, {"error": "JSON no válido"})
-        ruta = self.path.split("?")[0]
+        if not isinstance(datos, dict):
+            return self.responder(400, {"error": "JSON no válido"})
+
         if ruta == "/api/validar":
-            bien, mensaje = validar(datos.get("asignacion") if isinstance(datos, dict) else None)
-            return self.responder(200, {"ok": bien, "mensaje": mensaje})
+            return self.resultado(*validar(datos.get("asignacion")))
         if ruta == "/api/enviar":
             try:
-                config = limpiar(datos.get("config") if isinstance(datos, dict) else None)
+                config = limpiar(datos.get("config"))
             except ValueError as e:
-                return self.responder(200, {"ok": False, "mensaje": str(e)})
-            bien, mensaje = self.server.editor.enviar(config)
-            return self.responder(200, {"ok": bien, "mensaje": mensaje, "config": ak820.cargar_teclas()})
+                return self.resultado(False, str(e))
+            bien, mensaje = editor.enviar(config)
+            return self.resultado(bien, mensaje, config=ak820.cargar_teclas())
+        if ruta == "/api/luces":
+            try:
+                argumentos = args_luces(datos.get("luces"))
+            except ValueError as e:
+                return self.resultado(False, str(e))
+            bien, mensaje = editor.orden(argumentos)
+            return self.resultado(bien, mensaje, luces=ak820.cargar_luces())
+        if ruta == "/api/apagar":
+            bien, mensaje = editor.orden(["luces", "apagado"])
+            return self.resultado(bien, mensaje)
+        if ruta == "/api/reloj":
+            bien, mensaje = editor.orden(["reloj"])
+            return self.resultado(bien, mensaje, pantalla=ak820.modo_pantalla())
+        if ruta == "/api/sistema":
+            try:
+                argumentos = args_sistema(datos.get("ajustes"))
+            except ValueError as e:
+                return self.resultado(False, str(e))
+            bien, mensaje = editor.orden(argumentos)
+            return self.resultado(bien, mensaje, ajustes=ajustes_para_pagina())
         self.responder(404, {"error": "no existe"})
 
 
 def main():
     editor = Editor()
     editor.abrir()
-    print(f"Editor abierto en el navegador: {editor.url()}")
+    print(f"Abierto en el navegador: {editor.url()}")
     print("Déjalo abierto mientras lo uses; para cerrarlo, Ctrl+C.")
     try:
         threading.Event().wait()

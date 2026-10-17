@@ -107,7 +107,8 @@ class ConTecladoFalso(unittest.TestCase):
                        mock.patch.object(ak820.time, "sleep", lambda _s: None),
                        mock.patch.object(ak820, "TECLAS_GUARDADAS", os.path.join(carpeta.name, "teclas.json")),
                        mock.patch.object(ak820, "AJUSTES_GUARDADOS", os.path.join(carpeta.name, "sistema.json")),
-                       mock.patch.object(ak820, "PANTALLA_GUARDADA", os.path.join(carpeta.name, "pantalla.json"))):
+                       mock.patch.object(ak820, "PANTALLA_GUARDADA", os.path.join(carpeta.name, "pantalla.json")),
+                       mock.patch.object(ak820, "LUCES_GUARDADAS", os.path.join(carpeta.name, "luces.json"))):
             parche.start()
             self.addCleanup(parche.stop)
 
@@ -276,6 +277,7 @@ class OtrasOrdenes(ConTecladoFalso):
         self.assertEqual(self.teclado.ordenes(), [0x18, 0x13, 0xF0])
         datos = self.teclado.datos()
         self.assertEqual((datos[0], datos[3], datos[9], datos[10]), (0x07, 0xFF, 3, 0))
+        self.assertEqual(ak820.cargar_luces()["color"], "0000FF")
 
     def test_imagen(self):
         from PIL import Image
@@ -336,12 +338,13 @@ class Editor(ConTecladoFalso):
         self.addCleanup(self.editor.servidor.server_close)      # (las limpiezas van al revés:
         self.addCleanup(self.editor.servidor.shutdown)          #  primero se para, luego se cierra)
 
-    def pedir(self, ruta, cuerpo=None, clave=True, host=None):
-        peticion = urllib.request.Request(self.base + ruta, data=json.dumps(cuerpo).encode() if cuerpo is not None else None)
+    def pedir(self, ruta, cuerpo=None, clave=True, host=None, crudo=None, tipo="image/png"):
+        datos = crudo if crudo is not None else json.dumps(cuerpo).encode() if cuerpo is not None else None
+        peticion = urllib.request.Request(self.base + ruta, data=datos)
         if clave:
             peticion.add_header("X-Clave", self.editor.clave)
-        if cuerpo is not None:
-            peticion.add_header("Content-Type", "application/json")
+        if datos is not None:
+            peticion.add_header("Content-Type", tipo if crudo is not None else "application/json")
         if host:
             peticion.add_header("Host", host)
         try:
@@ -368,6 +371,49 @@ class Editor(ConTecladoFalso):
         self.assertTrue(respuesta["ok"], respuesta)
         self.assertEqual(respuesta["config"], config)
         self.assertIn(0x11, self.teclado.ordenes())
+
+    def test_luces(self):
+        respuesta = json.loads(self.pedir("/api/luces", {"luces": {"efecto": "respirar", "color": "#00ff00",
+                                                                    "brillo": 4, "velocidad": 2}})[1])
+        self.assertTrue(respuesta["ok"], respuesta)
+        self.assertEqual(self.teclado.ordenes(), [0x18, 0x13, 0xF0])
+        self.assertEqual(respuesta["luces"]["color"], "00FF00")
+        for malo in ({"efecto": "nada"}, {"efecto": "fijo", "color": "verde"}, {"efecto": "fijo", "brillo": 9}):
+            with self.subTest(malo=malo):
+                self.assertFalse(json.loads(self.pedir("/api/luces", {"luces": malo})[1])["ok"])
+        self.assertEqual(self.teclado.ordenes(), [0x18, 0x13, 0xF0])     # los malos no llegan
+
+    def test_sistema(self):
+        ajustes = {"fn": "alternar", "reposo": "30", "respuesta": 3, "bloquear": {"win": True}}
+        respuesta = json.loads(self.pedir("/api/sistema", {"ajustes": ajustes})[1])
+        self.assertTrue(respuesta["ok"], respuesta)
+        self.assertEqual(respuesta["ajustes"], {"fn": "alternar", "reposo": "30", "respuesta": 3,
+                                                "bloquear": {"win": True, "altf4": False, "alttab": False}})
+        self.assertEqual(self.teclado.datos()[2:9].hex(" "), "01 00 00 01 03 00 03")
+        respuesta = json.loads(self.pedir("/api/sistema", {"ajustes": {"fabrica": True}})[1])
+        self.assertEqual(respuesta["ajustes"]["reposo"], "5")
+
+    def test_imagen_y_reloj(self):
+        from PIL import Image
+        png = io.BytesIO()
+        Image.new("RGB", (64, 64), "red").save(png, "PNG")
+        respuesta = json.loads(self.pedir("/api/imagen", crudo=png.getvalue())[1])
+        self.assertTrue(respuesta["ok"], respuesta)
+        self.assertEqual((len(self.teclado.bloques), respuesta["pantalla"]), (9, "imagen"))
+        malo = json.loads(self.pedir("/api/imagen", crudo=b"esto no es una imagen")[1])
+        self.assertFalse(malo["ok"])
+        respuesta = json.loads(self.pedir("/api/reloj", {})[1])
+        self.assertEqual((respuesta["ok"], respuesta["pantalla"]), (True, "reloj"))
+        conexion = json.loads(self.pedir("/api/conexion")[1])
+        self.assertEqual((conexion["conectado"], conexion["ocupado"]), (True, False))
+
+    def test_ocupado(self):
+        self.editor.candado.acquire()
+        try:
+            respuesta = json.loads(self.pedir("/api/luces", {"luces": {"efecto": "fijo"}})[1])
+        finally:
+            self.editor.candado.release()
+        self.assertEqual((respuesta["ok"], respuesta["mensaje"]), (False, "Espera: hay otra operación en curso con el teclado."))
 
     def test_validar(self):
         bien = json.loads(self.pedir("/api/validar", {"asignacion": {"destino": "texto:hola", "modo": "paso"}})[1])

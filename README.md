@@ -82,14 +82,20 @@ acaba bien sale **⌨︎ ✓** unos segundos; si algo falla, una ventana explica
 que va haciendo se guarda en `~/Library/Logs/ak820-app.log`. Como siempre, el teclado
 tiene que estar **por cable** (y en modo cable, no en Bluetooth ni 2.4G).
 
-### Editor de teclas
+### La ventana de AK820
 
-**Abrir AK820…** (o Teclas → Editor de teclas…) abre la ventana de la app con un dibujo
-del teclado: pinchas una tecla, eliges qué hace (otra tecla o un atajo, multimedia,
-ratón, escribir un texto o varias teclas a la vez), en la capa normal o en la de Fn, y
-pulsas **Enviar al teclado**. Mientras la ventana está abierta, AK820 sale en el Dock y
-en Cmd+Tab. Sin la app, la misma página se abre en el navegador con
-`python3 ak820_editor.py`.
+**Abrir AK820…** abre la ventana de la app, con cuatro pestañas:
+
+- **Teclas**: un dibujo del teclado; pinchas una tecla, eliges qué hace (otra tecla o un
+  atajo, multimedia, ratón, escribir un texto o varias teclas a la vez), en la capa
+  normal o en la de Fn, y pulsas **Enviar al teclado**.
+- **Luces**: efecto, color, brillo, velocidad y dirección; se aplican al momento.
+- **Pantalla**: elegir (o arrastrar) una imagen o GIF y enviarlo, con el progreso; o
+  volver al reloj.
+- **Ajustes**: tecla Fn, reposo, tiempo de respuesta y bloqueos.
+
+Mientras la ventana está abierta, AK820 sale en el Dock y en Cmd+Tab. Sin la app, la
+misma página se abre en el navegador con `python3 ak820_editor.py`.
 
 La página solo funciona en este Mac (`127.0.0.1`) y con la clave que pone la app en la
 dirección, así que ninguna otra web puede tocar el teclado.
