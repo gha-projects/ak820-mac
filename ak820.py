@@ -68,11 +68,15 @@ MAX_FOTOGRAMAS = 140        # límite del teclado (config.xml oficial: gif_maxfr
 #   -> tabla de 576 bytes (144 teclas x 4, acaba en AA 55) en 9 paquetes de 64,
 #      sin leer respuesta -> CONFIRMAR -> GUARDAR.
 # Cada tecla ocupa 4 bytes en la posición key_index * 4:
-#   00 00 00 00        = sin cambios (lo de fábrica)
-#   02 00 <código> 00  = escribe esa tecla (código USB HID)
-# Los modificadores (Cmd, Ctrl...) llevan otro formato que aún no está claro:
-# asignarlos a sí mismos los descolocó. Por eso solo se permiten teclas normales.
+#   00 00 00 00                 = sin cambios (lo de fábrica)
+#   02 <modificadores> <tecla> 00 = tecla o combinación (códigos USB HID);
+#                                 un modificador solo: 02 <bit> 00 00
+#   03 <código lo> <hi> 00        = tecla multimedia (USB "consumer")
+#   01 01 <botón> 00 / 01 03 <rueda> 00 = ratón
+# OJO: en modo Mac el teclado intercambia por su cuenta Win y Alt. Una tecla
+# asignada aquí manda exactamente lo que se pide, sin ese intercambio.
 CMD_TECLAS = 0x11
+CMD_TECLAS_FN = 0x27        # la misma tabla, pero para la capa con Fn
 TAM_TABLA_TECLAS = 576
 
 # Posición (key_index) de cada tecla física, sacada de la distribución oficial.
@@ -84,15 +88,31 @@ POSICION_TECLA = {
     "repag": 118, "bloqmayus": 55, **dict(zip("asdfghjkl", range(56, 65))),
     ";": 65, "'": 66, "enter": 85, "avpag": 121,
     "shift": 73, **dict(zip("zxcvbnm", range(74, 81))), ",": 81, ".": 82, "/": 83,
-    "shift_der": 84, "arriba": 101, "ctrl": 91, "cmd": 92, "alt": 93,
+    "shift_der": 84, "arriba": 101, "ctrl": 91, "win": 92, "alt": 93,
     "espacio": 94, "alt_der": 95, "ctrl_der": 98,
     "izquierda": 99, "abajo": 100, "derecha": 102,
 }
 # Otros nombres para las mismas teclas (inglés / rotulado de las teclas).
 for alias, nombre in {"pgdn": "avpag", "pgup": "repag", "home": "inicio", "delete": "supr",
-                      "backspace": "borrar", "capslock": "bloqmayus", "space": "espacio",
-                      "win": "cmd", "option": "alt"}.items():
+                      "backspace": "borrar", "capslock": "bloqmayus", "space": "espacio"}.items():
     POSICION_TECLA[alias] = POSICION_TECLA[nombre]
+# Teclas que el programa oficial no deja cambiar en la capa con Fn (fnlayer_disable).
+NO_CAMBIABLES_FN = {POSICION_TECLA[t] for t in ("esc", "inicio", "win")}
+
+# Modificadores (bits del primer byte de una combinación, estándar USB).
+MODIFICADOR = {"ctrl": 0x01, "shift": 0x02, "option": 0x04, "alt": 0x04, "cmd": 0x08, "win": 0x08,
+               "ctrl_der": 0x10, "shift_der": 0x20, "option_der": 0x40, "alt_der": 0x40,
+               "cmd_der": 0x80, "win_der": 0x80}
+
+# Teclas multimedia (USB "consumer"). Las 7 primeras son las del programa oficial.
+MULTIMEDIA = {"play": 0xCD, "siguiente": 0xB5, "anterior": 0xB6, "stop": 0xB7,
+              "silencio": 0xE2, "volumen+": 0xE9, "volumen-": 0xEA,
+              "brillo+": 0x6F, "brillo-": 0x70}
+
+# Ratón: (tipo, valor). Tipo 1 = botones (bits USB: 1 izq., 2 der., 4 central), 3 = rueda.
+RATON = {"clic": (0x01, 0x01), "clic_der": (0x01, 0x02), "clic_medio": (0x01, 0x04),
+         "atras": (0x01, 0x08), "adelante": (0x01, 0x10),
+         "rueda_arriba": (0x03, 0x01), "rueda_abajo": (0x03, 0xFF)}
 
 # Teclas que se pueden asignar como destino (códigos USB HID).
 CODIGO_TECLA = {
@@ -177,11 +197,36 @@ def pixeles_rgb565(imagen):
     return bytes(datos)
 
 
+def entrada_tecla(destino):
+    """Los 4 bytes de una tecla para un destino como 'b', 'cmd+c', 'volumen+' o 'clic_der'.
+
+    Devuelve None si no se entiende el destino.
+    """
+    destino = destino.lower()
+    if destino in MULTIMEDIA:
+        codigo = MULTIMEDIA[destino]
+        return bytes([0x03, codigo & 0xFF, codigo >> 8, 0x00])
+    if destino in RATON:
+        tipo, valor = RATON[destino]
+        return bytes([0x01, tipo, valor, 0x00])
+    *mods, final = destino.split("+")
+    if any(m not in MODIFICADOR for m in mods):
+        return None
+    bits = 0
+    for m in mods:
+        bits |= MODIFICADOR[m]
+    if final in CODIGO_TECLA:
+        return bytes([0x02, bits, CODIGO_TECLA[final], 0x00])
+    if final in MODIFICADOR:                     # un modificador (o varios) sin tecla
+        return bytes([0x02, bits | MODIFICADOR[final], 0x00, 0x00])
+    return None
+
+
 def tabla_teclas(cambios):
-    """Tabla de 576 bytes: {posición: código} -> tecla normal; el resto, sin cambios."""
+    """Tabla de 576 bytes: {posición: 4 bytes}; el resto, sin cambios (ceros)."""
     tabla = bytearray(TAM_TABLA_TECLAS)
-    for posicion, codigo in cambios.items():
-        tabla[posicion * 4:posicion * 4 + 4] = bytes([0x02, 0x00, codigo, 0x00])
+    for posicion, entrada in cambios.items():
+        tabla[posicion * 4:posicion * 4 + 4] = entrada
     tabla[-2:] = b"\xaa\x55"
     return bytes(tabla)
 
@@ -324,19 +369,27 @@ def cmd_luces(args):
 
 def cmd_teclas(args):
     if args.cambios == ["lista"]:
-        print("Teclas que se pueden cambiar (origen):")
+        print("Teclas que se pueden cambiar (origen, como están rotuladas):")
         print("  " + " ".join(sorted(POSICION_TECLA)))
-        print("Lo que pueden escribir (destino):")
+        print("Destinos: una tecla, o una combinación con '+' (p. ej. cmd+c, ctrl+shift+t):")
         print("  " + " ".join(sorted(CODIGO_TECLA)))
+        print("Modificadores:", " ".join(sorted(MODIFICADOR)))
+        print("Multimedia:", " ".join(MULTIMEDIA))
+        print("Ratón:", " ".join(RATON))
         return 0
+    capa = CMD_TECLAS_FN if args.fn else CMD_TECLAS
     cambios = {}
     if args.cambios != ["restaurar"]:
         for cambio in args.cambios:
             origen, _, destino = cambio.lower().partition("=")
-            if origen not in POSICION_TECLA or destino not in CODIGO_TECLA:
+            entrada = entrada_tecla(destino)
+            if origen not in POSICION_TECLA or entrada is None:
                 print(f"No entiendo '{cambio}'. Usa origen=destino; nombres válidos: python3 ak820.py teclas lista")
                 return 1
-            cambios[POSICION_TECLA[origen]] = CODIGO_TECLA[destino]
+            if args.fn and POSICION_TECLA[origen] in NO_CAMBIABLES_FN:
+                print(f"'{origen}' no se puede cambiar en la capa con Fn (tampoco en el programa oficial).")
+                return 1
+            cambios[POSICION_TECLA[origen]] = entrada
     info = buscar_interfaz()
     if info is None:
         print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
@@ -347,7 +400,7 @@ def cmd_teclas(args):
     dispositivo.open_path(info["path"])
     try:
         enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
-        enviar(dispositivo, paquete_control(CMD_TECLAS, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
+        enviar(dispositivo, paquete_control(capa, byte8=TAM_TABLA_TECLAS // PACKET_SIZE))
         for i in range(0, TAM_TABLA_TECLAS, PACKET_SIZE):
             # Los trozos de la tabla van seguidos y sin leer respuesta (como el oficial).
             dispositivo.send_feature_report(bytes([0x00]) + tabla[i:i + PACKET_SIZE])
@@ -356,11 +409,12 @@ def cmd_teclas(args):
         enviar(dispositivo, paquete_control(CMD_GUARDAR, byte8=0x00))
     finally:
         dispositivo.close()
+    nombre_capa = "capa con Fn" if args.fn else "capa normal"
     if cambios:
-        print("Teclas cambiadas en el teclado:", ", ".join(args.cambios))
-        print("(Cada vez se manda la tabla entera: los cambios anteriores se sustituyen.)")
+        print(f"Teclas cambiadas ({nombre_capa}):", ", ".join(args.cambios))
+        print("(Cada vez se manda la tabla entera de esa capa: los cambios anteriores se sustituyen.)")
     else:
-        print("Todas las teclas vuelven a ser las de fábrica.")
+        print(f"Todas las teclas de la {nombre_capa} vuelven a ser las de fábrica.")
     return 0
 
 
@@ -431,7 +485,8 @@ def main():
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
     t.add_argument("cambios", nargs="+",
-                   help="origen=destino (p. ej. avpag=b), 'restaurar' o 'lista'")
+                   help="origen=destino (p. ej. avpag=b, repag=cmd+c, fin=volumen+), 'restaurar' o 'lista'")
+    t.add_argument("--fn", action="store_true", help="cambiar la capa con Fn (Fn + tecla) en vez de la normal")
     args = parser.parse_args()
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas}

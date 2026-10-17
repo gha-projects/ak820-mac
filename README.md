@@ -68,15 +68,16 @@ Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable
 ## Cambiar teclas dentro del teclado
 
 ```
-python3 ak820.py teclas avpag=b            # PgDn escribe "b"
-python3 ak820.py teclas repag=f14 avpag=f15
-python3 ak820.py teclas restaurar          # todas de fábrica
-python3 ak820.py teclas lista              # nombres de teclas
+python3 ak820.py teclas avpag=b                  # PgDn escribe "b"
+python3 ak820.py teclas repag=cmd+a avpag=volumen+  # combinaciones y multimedia
+python3 ak820.py teclas supr=clic_der              # ratón
+python3 ak820.py teclas --fn avpag=play            # capa con Fn (Fn + PgDn)
+python3 ak820.py teclas restaurar                  # todas de fábrica (añade --fn para esa capa)
+python3 ak820.py teclas lista                      # todos los nombres
 ```
 
-Cada vez se manda la tabla entera, así que pon todos los cambios en la misma orden.
-Como destino, por ahora, solo teclas normales (no Cmd/Ctrl/Option). Detalles en
-[docs/teclas.md](docs/teclas.md).
+Cada vez se manda la tabla entera de la capa, así que pon todos los cambios en la misma
+orden. Detalles en [docs/teclas.md](docs/teclas.md).
 
 ## Imagen en la pantalla
 
@@ -91,7 +92,7 @@ Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla
 
 ## Próximos pasos
 
-1. Teclas: modificadores, capa con Fn, multimedia y macros (ver [docs/teclas.md](docs/teclas.md)).
+1. Macros en el teclado (ver [docs/teclas.md](docs/teclas.md)).
 2. Temporizador de reposo (probado por cable sin efecto; puede que solo actúe con batería).
 
 ## Créditos
