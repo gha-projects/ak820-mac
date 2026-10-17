@@ -106,6 +106,8 @@ RESPUESTA_DEFECTO = 2
 
 CMD_MACROS = 0x19
 CMD_MACROS_DATOS = 0x15
+# Modos de reproducción (valores del desplegable del programa oficial, 0x4101c0).
+MODO_MACRO = {"una": 0, "veces": 1, "alternar": 2, "mantener": 3, "clic": 4}
 TAM_MACROS = 0xE00
 INICIO_MACROS = 400
 PAUSA_MACRO_MS = 15         # espera entre pulsaciones dentro de una macro
@@ -507,10 +509,8 @@ def cmd_teclas(args):
                     print(f"No sé escribir '{destino[6:]}' con una macro (solo letras, números, espacio y símbolos básicos).")
                     return 1
                 macros.append(eventos)
-                if args.veces > 1:
-                    entrada = bytes([0x06, len(macros) - 1, 0x01, args.veces])
-                else:
-                    entrada = bytes([0x06, len(macros) - 1, 0x00, 0x01])
+                modo = args.modo or ("veces" if args.veces > 1 else "una")
+                entrada = bytes([0x06, len(macros) - 1, MODO_MACRO[modo], args.veces])
             else:
                 entrada = entrada_tecla(destino)
             if origen not in POSICION_TECLA or entrada is None:
@@ -653,6 +653,9 @@ def main():
     t.add_argument("--fn", action="store_true", help="cambiar la capa con Fn (Fn + tecla) en vez de la normal")
     t.add_argument("--veces", type=int, default=1, choices=range(1, 256), metavar="N",
                    help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")
+    t.add_argument("--modo", choices=MODO_MACRO,
+                   help="cómo se reproducen las macros: una (por defecto), veces (con --veces), "
+                        "alternar (hasta volver a pulsar), mantener (mientras se mantiene), clic")
     args = parser.parse_args()
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo}
