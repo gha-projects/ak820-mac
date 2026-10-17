@@ -6,7 +6,7 @@ congelar el menú) y recoge lo que imprime. Si sale bien, el icono muestra ✓
 unos segundos; si falla (o la opción es para consultar algo), sale una ventana
 con el mensaje. No se usan notificaciones: macOS no enseña las de un Python
 suelto sin permiso. Lo que imprime ak820.py se copia también a la salida
-estándar, que 'Abrir AK820.command' guarda en ~/Library/Logs/ak820-app.log.
+estándar, que AK820.app (y extras/Abrir AK820.command) guardan en ~/Library/Logs/ak820-app.log.
 Solo se hace una operación a la vez: el teclado no admite dos conversaciones
 seguidas sin terminar la anterior.
 
