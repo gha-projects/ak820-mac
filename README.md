@@ -9,7 +9,7 @@ the screen and music mode.
 
 *[Leer en español](README.es.md)*
 
-![The Keys tab](docs/img/teclas.png)
+![The Keys tab](docs/img/en/teclas.png)
 
 ## What it can do
 
@@ -37,7 +37,7 @@ It comes as a menu-bar app with its own window, and as a command-line tool.
 
 | Per-key colors | Music mode |
 |---|---|
-| ![](docs/img/luces-tecla-a-tecla.png) | ![](docs/img/musica.png) |
+| ![](docs/img/en/luces-tecla-a-tecla.png) | ![](docs/img/en/musica.png) |
 
 ## Compatibility
 
@@ -99,19 +99,23 @@ The first time you use music mode, macOS asks for permission to **record system 
 
   ```sh
   source .venv/bin/activate
-  python3 ak820.py buscar                              # is the keyboard there?
-  python3 ak820.py reloj                               # set the clock
-  python3 ak820.py luces respirar --color 8000FF       # an effect (see: luces --help)
-  python3 ak820.py colores esc=FF0000 --fondo 102040    # per-key colors
-  python3 ak820.py musica --modo arcoiris               # music mode, until Ctrl+C
-  python3 ak820.py imagen ~/Desktop/anim.gif            # picture or GIF on the screen
-  python3 ak820.py teclas avpag=cmd+a repag=texto:Hi    # remap keys (see: teclas lista)
-  python3 ak820.py teclas restaurar todo               # all keys back to factory
-  python3 ak820.py sistema --fn-modo alternar          # settings (see: sistema --help)
-  python3 ak820.py bateria                             # battery, if the receiver reports it
-  python3 ak820.py reenviar                            # send the saved setup again
-  python3 ak820.py fabrica --si                        # everything back to factory
+  python3 ak820.py find                                # is the keyboard there?
+  python3 ak820.py clock                               # set the clock
+  python3 ak820.py lights breath --color 8000FF        # an effect (see: lights --help)
+  python3 ak820.py colors esc=FF0000 --background 102040   # per-key colors
+  python3 ak820.py music --mode rainbow                # music mode, until Ctrl+C
+  python3 ak820.py image ~/Desktop/anim.gif            # picture or GIF on the screen
+  python3 ak820.py keys pgdn=cmd+a pgup=text:Hi        # remap keys (see: keys list)
+  python3 ak820.py keys reset all                      # all keys back to factory
+  python3 ak820.py settings --fn-mode toggle           # settings (see: settings --help)
+  python3 ak820.py battery                             # battery, if the receiver reports it
+  python3 ak820.py resend                              # send the saved setup again
+  python3 ak820.py factory --yes                       # everything back to factory
+  python3 ak820.py factory --undo                      # …and back to what you had
   ```
+
+  The code is written in Spanish, so `--help` lists the Spanish names (`luces`,
+  `teclas`…); both work.
 
   Over 2.4 GHz the receiver answers even when the keyboard isn't listening (for example,
   right after switching it to 2.4G), so check that the change shows on the keyboard.

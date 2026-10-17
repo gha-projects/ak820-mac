@@ -1419,6 +1419,8 @@ def cmd_teclas(args):
         print(tr("Multimedia:"), " ".join(MULTIMEDIA))
         print(tr("Ratón:"), " ".join(RATON), "doble_clic")
         print(tr("Para devolver una sola tecla a lo de fábrica: tecla=defecto (p. ej. avpag=defecto)"))
+        nombres = set(POSICION_TECLA) | set(CODIGO_TECLA) | set(MODIFICADOR) | set(MULTIMEDIA) | set(RATON) | {"doble_clic"}
+        print(tr("También en inglés:"), " ".join(en for en, es in EN_VALORES.items() if es in nombres))
         return 0
     config = cargar_teclas()
     if not args.cambios:
@@ -1515,8 +1517,77 @@ def cmd_imagen(args):
     return 0
 
 
+# --- La terminal también en inglés --------------------------------------------------------------
+# Las órdenes, opciones y valores se pueden escribir en inglés (lights breath --brightness 3,
+# keys pgdn=cmd+left); antes de leer la orden se cambian por los nombres de siempre.
+EN_ORDENES = {"find": "buscar", "clock": "reloj", "lights": "luces", "sleep": "reposo",
+              "settings": "sistema", "factory": "fabrica", "resend": "reenviar", "battery": "bateria",
+              "music": "musica", "colors": "colores", "image": "imagen", "keys": "teclas"}
+EN_OPCIONES = {"--time": "--hora", "--brightness": "--brillo", "--speed": "--velocidad",
+               "--direction": "--direccion", "--rainbow": "--arcoiris", "--fn-mode": "--fn-modo",
+               "--response": "--respuesta", "--sleep": "--reposo", "--lock": "--bloquear",
+               "--unlock": "--desbloquear", "--factory": "--fabrica", "--yes": "--si", "--undo": "--deshacer",
+               "--mode": "--modo", "--seconds": "--segundos", "--background": "--fondo", "--times": "--veces"}
+EN_VALORES = {
+    # efectos de luz (los nombres del programa oficial)
+    "static": "fijo", "off": "apagado", "single-key": "una-tecla", "single-key-off": "una-tecla-off",
+    "glittering": "brillos", "rain": "lluvia", "colorful": "colores", "breath": "respirar",
+    "spectrum": "espectro", "outward": "ondas", "scrolling": "desplazar", "wave": "rodar",
+    "rotating": "girar", "explode": "explosion", "launch": "lanzar", "ripples": "ondulas",
+    "flowing": "fluir", "pulsating": "latido", "tilt": "inclinar", "shuttle": "lanzadera", "custom": "personal",
+    # direcciones y flechas
+    "left": "izquierda", "down": "abajo", "up": "arriba", "right": "derecha",
+    # reposo, modo de Fn y modos de las macros
+    "never": "nunca", "hold": "mantener", "toggle": "alternar", "once": "una", "times": "veces", "step": "paso",
+    # modo música
+    "green-yellow-red": "verde-amarillo-rojo", "rainbow": "arcoiris", "reverse-rainbow": "arcoiris-inverso",
+    "gradient": "degradado", "cycle": "ciclo", "white": "blanco", "red": "rojo", "orange": "naranja",
+    "yellow": "amarillo", "blue": "azul", "green": "verde",
+    # palabras de 'teclas', 'colores' e 'imagen'
+    "list": "lista", "reset": "restaurar", "all": "todo", "default": "defecto", "test": "prueba",
+    # teclas, multimedia y ratón
+    "ralt": "alt_der", "rctrl": "ctrl_der", "rshift": "shift_der", "rcmd": "cmd_der", "roption": "option_der",
+    "rwin": "win_der", "caps": "bloqmayus", "printscreen": "imprpant",
+    "next": "siguiente", "previous": "anterior", "prev": "anterior", "mute": "silencio",
+    "volume+": "volumen+", "volume-": "volumen-", "brightness+": "brillo+", "brightness-": "brillo-",
+    "click": "clic", "right_click": "clic_der", "middle_click": "clic_medio",
+    "wheel_up": "rueda_arriba", "wheel_down": "rueda_abajo", "double_click": "doble_clic",
+}
+
+
+def desde_ingles(argv):
+    """La línea de órdenes con los nombres en inglés cambiados por los de siempre."""
+    def valor(v):
+        if v.lower().startswith("text:"):                   # el texto de la macro, tal cual
+            return "texto:" + v[len("text:"):]
+        if v.lower() in EN_VALORES:
+            return EN_VALORES[v.lower()]
+        if "+" in v.strip("+-"):                             # combinación: cmd+left
+            return "+".join(EN_VALORES.get(p.lower(), p) for p in v.split("+"))
+        return v
+
+    salida = []
+    for n, a in enumerate(argv):
+        if n == 0:
+            salida.append(EN_ORDENES.get(a, a))
+        elif a.startswith("--"):
+            opcion, igual, resto = a.partition("=")
+            salida.append(EN_OPCIONES.get(opcion, opcion) + igual + (valor(resto) if igual else ""))
+        elif "=" in a and not a.lower().startswith(("text:", "texto:")):
+            origen, _, destino = a.partition("=")
+            salida.append(valor(origen) + "=" + valor(destino))
+        else:
+            salida.append(valor(a))
+    return salida
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=tr("Configurador del Ajazz AK820 Pro para Mac"))
+    argv = desde_ingles(sys.argv[1:] if argv is None else list(argv))
+    parser = argparse.ArgumentParser(
+        description=tr("Configurador del Ajazz AK820 Pro para Mac"),
+        epilog=tr("También en inglés: find, clock, lights, sleep, settings, factory, resend, battery, music, "
+                  "colors, image y keys, con sus opciones (--brightness, --speed, --yes…) y valores (breath, "
+                  "wave, left, next, mute, text:…)."))
     sub = parser.add_subparsers(dest="comando", required=True)
     sub.add_parser("buscar", help=tr("comprobar que el Mac ve el teclado (no cambia nada)"))
     r = sub.add_parser("reloj", help=tr("poner en hora la pantalla del teclado"))

@@ -377,6 +377,26 @@ class Receptor24G(ConTecladoFalso):
         self.assertIn("receptor 2.4G", salida)
 
 
+class EnIngles(ConTecladoFalso):
+    """La terminal también entiende los nombres en inglés."""
+
+    def test_traduccion(self):
+        self.assertEqual(ak820.desde_ingles(["keys", "pgdn=cmd+left", "pgup=text:Hi left", "--mode", "toggle"]),
+                         ["teclas", "pgdn=cmd+izquierda", "pgup=texto:Hi left", "--modo", "alternar"])
+        self.assertEqual(ak820.desde_ingles(["luces", "rodar", "--direccion", "izquierda"]),
+                         ["luces", "rodar", "--direccion", "izquierda"])         # el español, igual
+
+    def test_luces(self):
+        self.assertEqual(self.orden("lights", "breath", "--brightness", "3")[0], 0)
+        luces = ak820.cargar_luces()
+        self.assertEqual((luces["efecto"], luces["brillo"]), ("respirar", 3))
+
+    def test_teclas(self):
+        codigo, salida = self.orden("keys", "pgdn=cmd+left")
+        self.assertEqual(codigo, 0, salida)
+        self.assertIn(bytes([0x02, 0x08, 0x50, 0x00]), self.teclado.datos())        # ⌘ + flecha izquierda
+
+
 class BuscarOtroTeclado(unittest.TestCase):
     """Con un teclado que no es el nuestro, `buscar` enseña lo que ve para poder contarlo."""
 

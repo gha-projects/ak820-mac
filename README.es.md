@@ -113,7 +113,11 @@ sistema** (solo el audio, no la pantalla).
   python3 ak820.py bateria                             # batería, si el receptor la da
   python3 ak820.py reenviar                            # volver a mandar lo guardado
   python3 ak820.py fabrica --si                        # todo de fábrica
+  python3 ak820.py fabrica --deshacer                  # …y volver a lo que tenías
   ```
+
+  Todas las órdenes tienen también nombre en inglés (`lights`, `keys`, `--brightness`…),
+  que es el que usa el README en inglés.
 
   Por 2.4G el receptor contesta aunque el teclado no le escuche (por ejemplo, nada más
   pasarlo a 2.4G), así que comprueba que el cambio se ve en el teclado.
