@@ -49,7 +49,8 @@ DATOS_USAGE_PAGE = 0xFF68   # la interfaz por la que van las imágenes
 RECEPTOR_PID = 0xFDFD
 RECEPTOR_USAGE_PAGE = 0xFF60
 TROZO_24G = 28
-ORDEN_24G = {"luces": 0x05, "sistema": 0x07, "macros": 0x09, "reloj": 0x0C, "normal": 0x10, "fn": 0x12}
+ORDEN_24G = {"luces": 0x05, "sistema": 0x07, "macros": 0x09, "reloj": 0x0C, "normal": 0x10, "fn": 0x12,
+             "bateria": 0x20}      # batería: el receptor contesta 20 01 00 <%> (0 = no lo sabe)
 
 PACKET_SIZE = 64
 PAUSA = 0.035               # 35 ms entre paquetes, como el programa oficial
@@ -504,13 +505,38 @@ def tramas_24g(orden, datos, ultima_longitud=None):
 
 
 def esperar_eco(dispositivo, trama):
-    """El receptor confirma cada trama repitiendo sus 3 primeros bytes (el oficial espera 20 veces)."""
+    """El receptor confirma cada trama repitiendo sus 3 primeros bytes (el oficial espera 20 veces).
+
+    Devuelve la respuesta (bytes), o None si no llega."""
     time.sleep(0.005)
     for _ in range(20):
         respuesta = dispositivo.read(64, 10)
         if respuesta and bytes(respuesta[:3]) == trama[:3]:
-            return True
-    return False
+            return bytes(respuesta)
+    return None
+
+
+def bateria():
+    """El % de batería que da el receptor 2.4G, o None (sin receptor, dormido o no lo sabe).
+
+    Por cable no hay forma de leerla (la pantalla del teclado sí la enseña)."""
+    if buscar_interfaz() is not None:
+        return None
+    info = buscar_receptor()
+    if info is None:
+        return None
+    dispositivo = hid.device()
+    dispositivo.open_path(info["path"])
+    try:
+        trama = next(tramas_24g(ORDEN_24G["bateria"], b"\x00"))
+        for _intento in range(2):
+            dispositivo.write(b"\x00" + trama)
+            respuesta = esperar_eco(dispositivo, trama)
+            if respuesta:
+                return respuesta[3] if 1 <= respuesta[3] <= 100 else None
+        return None
+    finally:
+        dispositivo.close()
 
 
 def enviar_24g(dispositivo, tramas):
@@ -853,6 +879,58 @@ def cmd_musica(args):
         return 0
 
 
+# --- Volver a fábrica y volver a mandar lo guardado -------------------------------------------
+# Como el «Factory Reset» del programa oficial: no hay una orden para resetear el teclado, sino
+# que se manda la configuración de fábrica entera (su rgb-keyboard.xml: efecto 11 = ola, brillo
+# 5, velocidad 3). El reset del propio teclado es mantener Fn + Espacio 3-5 segundos.
+ARGS_LUCES_FABRICA = ["rodar", "--arcoiris", "--brillo", "5", "--velocidad", "3"]
+
+
+def cmd_fabrica(args):
+    if not args.si:
+        print(tr("Esto deja el teclado de fábrica: teclas de las dos capas, macros, luces, colores "
+                 "tecla a tecla y ajustes (y pone el reloj en hora). Para hacerlo: python3 ak820.py fabrica --si"))
+        return 0
+    bien = enviar_teclas({c: {} for c in CAPAS}, vaciar_macros=True)
+    if buscar_interfaz() is not None:              # los colores solo van por cable
+        bien = enviar_colores(dict(COLORES_DEFECTO, teclas={})) and bien
+    bien = main(["luces"] + ARGS_LUCES_FABRICA) == 0 and bien
+    bien = main(["sistema", "--fabrica"]) == 0 and bien
+    bien = main(["reloj"]) == 0 and bien
+    print(tr("Teclado de fábrica.") if bien else tr("Algo no ha llegado al teclado: prueba otra vez."))
+    return 0 if bien else 1
+
+
+def cmd_reenviar(_args):
+    """Vuelve a mandar al teclado lo guardado en este Mac (teclas, luces o colores, y ajustes)."""
+    bien = enviar_teclas(cargar_teclas(), vaciar_macros=True)
+    luces = cargar_luces()
+    if luces and luces["efecto"] == "personal":
+        bien = enviar_colores(cargar_colores()) and bien
+    elif luces:
+        argumentos = ["luces", luces["efecto"], "--color", luces["color"], "--brillo", str(luces["brillo"]),
+                      "--velocidad", str(luces["velocidad"]), "--direccion", luces["direccion"]]
+        bien = main(argumentos + (["--arcoiris"] if luces.get("arcoiris") else [])) == 0 and bien
+    bien = enviar_ajustes(cargar_ajustes()) == 0 and bien
+    print(tr("Configuración de este Mac mandada al teclado.") if bien
+          else tr("Algo no ha llegado al teclado: prueba otra vez."))
+    return 0 if bien else 1
+
+
+def cmd_bateria(_args):
+    porcentaje = bateria()
+    if porcentaje is not None:
+        print(tr("Batería: {porcentaje} %", porcentaje=porcentaje))
+        return 0
+    if buscar_interfaz() is not None:
+        print(tr("Por cable no se puede leer la batería (la pantalla del teclado sí la enseña)."))
+    elif buscar_receptor() is None:
+        print(tr("La batería solo se puede leer con el receptor 2.4G."))
+    else:
+        print(tr("El receptor no da la batería: pulsa una tecla para despertar el teclado y prueba otra vez."))
+    return 1
+
+
 def cmd_luces(args):
     color = args.color.lstrip("#")
     r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
@@ -1175,8 +1253,10 @@ def subir_tabla(dispositivo, comando, tabla):
     return False
 
 
-def enviar_teclas(config):
+def enviar_teclas(config, vaciar_macros=False):
     """Manda las macros y las dos capas y, si todo llega bien, recuerda la configuración.
+
+    Con vaciar_macros, si no hay macros se manda el bloque vacío (borra las que hubiera).
 
     Devuelve True si ha ido bien; si no, imprime el motivo. Lanza ValueError si la
     configuración no vale (antes de tocar el teclado).
@@ -1188,7 +1268,7 @@ def enviar_teclas(config):
     try:
         if modo == "2.4g":
             tramas = []
-            if macros:
+            if macros or vaciar_macros:
                 # La última trama de macros lleva como longitud lo que sobra de 28 (como el oficial).
                 tramas += tramas_24g(ORDEN_24G["macros"], bloque_macros(macros, TROZO_24G),
                                      longitud_macros(macros) % TROZO_24G)
@@ -1199,7 +1279,7 @@ def enviar_teclas(config):
                 return False
             guardar_teclas(config)
             return True
-        bloque = bloque_macros(macros) if macros else None
+        bloque = bloque_macros(macros) if macros or vaciar_macros else None
         if bloque and not subir_macros(dispositivo, bloque):
             print(tr("No consigo guardar las macros en el teclado. Prueba otra vez."))
             return False
@@ -1364,6 +1444,10 @@ def main(argv=None):
     si.add_argument("--bloquear", nargs="+", choices=["win", "altf4", "alttab"], help=tr("bloquear teclas/atajos"))
     si.add_argument("--desbloquear", nargs="+", choices=["win", "altf4", "alttab"])
     si.add_argument("--fabrica", action="store_true", help=tr("volver a los ajustes de fábrica"))
+    f = sub.add_parser("fabrica", help=tr("dejar el teclado de fábrica (teclas, macros, luces, colores y ajustes)"))
+    f.add_argument("--si", action="store_true", help=tr("confirmar (sin esto solo explica lo que hará)"))
+    sub.add_parser("reenviar", help=tr("volver a mandar al teclado la configuración guardada en este Mac"))
+    sub.add_parser("bateria", help=tr("ver la batería (solo con el receptor 2.4G)"))
     m = sub.add_parser("musica", help=tr("las luces siguen el sonido del Mac (modo música)"))
     m.add_argument("--modo", choices=MODO_MUSICA, default="verde-amarillo-rojo", help=tr("colores del ecualizador"))
     m.add_argument("--segundos", type=int, help=tr("pararlo solo al cabo de N segundos"))
@@ -1390,7 +1474,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
                "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo,
-               "sistema": cmd_sistema, "colores": cmd_colores, "musica": cmd_musica}
+               "sistema": cmd_sistema, "colores": cmd_colores, "musica": cmd_musica,
+               "fabrica": cmd_fabrica, "reenviar": cmd_reenviar, "bateria": cmd_bateria}
     return ordenes[args.comando](args)
 
 

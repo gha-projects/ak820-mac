@@ -22,9 +22,14 @@ se usa: teclas, macros, luces, la pantalla y el modo música.
 - **Pantalla**: poner una foto o un **GIF animado** en la pantalla de 0,85" (se recorta a
   128×128, hasta 140 fotogramas), ver cuál tiene, o volver al reloj.
 - **Reloj**: se pone en hora solo al conectar el teclado.
-- **Ajustes**: modo de la tecla Fn, reposo y tiempo de respuesta de las teclas.
+- **Ajustes**: modo de la tecla Fn, reposo y tiempo de respuesta de las teclas. Volver
+  a mandar al teclado lo que tiene guardado el Mac, o dejarlo todo de fábrica.
+- **Ayuda**: qué hace cada tecla de fábrica (los atajos con Fn, F1–F12 en modo Mac y
+  Windows, la rueda, los interruptores y las luces **C** y **W**: Bloq Mayús y bloqueo de
+  Win), sacado del [manual oficial](https://epomaker.com/cdn/shop/files/AK820_PRO_manual.pdf). La pestaña Teclas también enseña la función de
+  fábrica de cada tecla.
 - **Sin cable**: luces, teclas, macros, ajustes y la hora funcionan también con el
-  **receptor 2.4G**.
+  **receptor 2.4G**, y el menú enseña la batería.
 
 Es una app de la barra de menús con su propia ventana, y también un programa de terminal.
 
@@ -37,12 +42,17 @@ Es una app de la barra de menús con su propia ventana, y también un programa d
 - **Teclado**: Ajazz AK820 Pro, por cable con los identificadores USB `0C45:8009` o
   `0C45:800A` y la interfaz `0xFF13` (`python3 ak820.py buscar` lo comprueba), y su
   receptor 2.4G (`0C45:FDFD`). Algunos AK820 Pro con un firmware más nuevo usan otro
-  protocolo y no se detectan. Por Bluetooth no se puede configurar.
+  protocolo y no se detectan. Por Bluetooth no se puede configurar. Las cajas que ponen
+  **Ajazz × Nacodex** son el mismo teclado: lo que cuenta es el identificador USB (hay al
+  menos un Nacodex con `1A2C:9605`, y ese no se detecta).
 - **Distribución**: el dibujo de las teclas es el ANSI (EE. UU.) del programa oficial. En
   un teclado ISO alguna tecla puede estar en otro sitio.
 - **Mac**: probado en Apple Silicon con macOS 26. Cada uno se la compila en su Mac, así
   que en Intel también debería ir. El modo música necesita **macOS 14.2** o posterior; lo
   demás debería funcionar también en versiones anteriores.
+- **Idioma**: español o inglés, según el idioma del Mac (Ajustes del Sistema → General →
+  Idioma y región). Para añadir otro, se traduce `idiomas/en.json` a
+  `idiomas/<código>.json` (`idiomas/frases.py` saca la lista de frases).
 
 ## Instalación
 
@@ -67,9 +77,10 @@ sistema** (solo el audio, no la pantalla).
 
 ## Cómo se usa
 
-- **La app**: al abrir AK820 sale su ventana, con cuatro pestañas: **Teclas**, **Luces**,
-  **Pantalla** y **Ajustes**. El icono ⌨︎ de la barra de menús tiene accesos rápidos
-  (luces, modo música, reloj, reposo…). Mientras trabaja, el icono pasa a `⌨︎…`,
+- **La app**: al abrir AK820 sale su ventana, con cinco pestañas: **Teclas**, **Luces**,
+  **Pantalla**, **Ajustes** y **Ayuda**. El icono ⌨︎ de la barra de menús tiene accesos
+  rápidos (luces, modo música, reloj, reposo…) y, con el receptor 2.4G, enseña la
+  batería. Mientras trabaja, el icono pasa a `⌨︎…`,
   `⌨︎ 45 %` o `⌨︎ ♪`, y lo que hace queda en `~/Library/Logs/ak820-app.log`.
 - **La terminal** (desde la carpeta del proyecto):
 
@@ -84,11 +95,15 @@ sistema** (solo el audio, no la pantalla).
   python3 ak820.py teclas avpag=cmd+a repag=texto:Hola  # cambiar teclas (ver: teclas lista)
   python3 ak820.py teclas restaurar todo               # todas las teclas de fábrica
   python3 ak820.py sistema --fn-modo alternar          # ajustes (ver: sistema --help)
+  python3 ak820.py bateria                             # batería (solo con el receptor 2.4G)
+  python3 ak820.py reenviar                            # volver a mandar lo guardado
+  python3 ak820.py fabrica --si                        # todo de fábrica
   ```
 
 El teclado no deja leer su configuración, así que el programa recuerda lo último que le
 ha mandado en `~/Library/Application Support/ak820-mac/` (teclas, colores, luces, ajustes
-y una copia de la imagen de la pantalla).
+y una copia de la imagen de la pantalla). Si el teclado se resetea o lo configuras en
+otro ordenador, **Volver a mandar mi configuración** (o `reenviar`) lo deja como estaba.
 
 ### Extra: la tecla 🌐 de Mac
 
@@ -122,6 +137,14 @@ mensajes de 32 bytes. Todos los formatos están en **[docs/PROTOCOL.md](docs/PRO
 | `tests/` | Pruebas con un teclado falso: `.venv/bin/python -m unittest discover -s tests` |
 | `extras/` | La tecla 🌐 en macOS y un lanzador para probar cambios sin crear la app |
 
+## Otros proyectos
+
+Si prefieres cambiar el firmware del teclado,
+[fpb/ajazz-ak820-pro](https://github.com/fpb/ajazz-ak820-pro) ha portado **QMK** al
+AK820 Pro. Es otro camino: esta app habla con el firmware original y no funciona con QMK,
+y hay varias revisiones del hardware, así que conviene leer sus notas antes de grabar
+nada.
+
 ## Créditos
 
 Parte del protocolo lo descifró antes la comunidad, en proyectos con licencia MIT:
@@ -131,4 +154,5 @@ Parte del protocolo lo descifró antes la comunidad, en proyectos con licencia M
 [gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac).
 
 Licencia MIT (ver [LICENSE](LICENSE)). Proyecto no oficial, sin relación con Ajazz ni Epomaker. Úsalo bajo tu responsabilidad:
-escribe en la memoria del teclado (todo se puede dejar de fábrica desde la app).
+escribe en la memoria del teclado (todo se puede dejar de fábrica desde la app, o en el
+propio teclado manteniendo Fn + Espacio de 3 a 5 segundos).

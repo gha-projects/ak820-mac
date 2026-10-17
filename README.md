@@ -22,9 +22,13 @@ the screen and music mode.
 - **Screen**: put any picture or **animated GIF** on the 0.85" screen (cropped to
   128×128, up to 140 frames), see what's on it, or go back to the clock.
 - **Clock**: sets the time automatically when the keyboard is plugged in.
-- **Settings**: Fn key mode, sleep timer, key response time.
+- **Settings**: Fn key mode, sleep timer, key response time. Send the setup saved on
+  your Mac to the keyboard again, or reset everything to factory.
+- **Help**: what each key does out of the box (Fn shortcuts, F1–F12 in Mac and Windows
+  mode, the knob, the switches, and the **C** and **W** lights: Caps Lock and Win lock),
+  from the [official manual](https://epomaker.com/cdn/shop/files/AK820_PRO_manual.pdf). The Keys tab also shows each key's factory function.
 - **Without the cable**: lights, keys, macros, settings and the clock also work through
-  the **2.4 GHz receiver**.
+  the **2.4 GHz receiver**, and the menu shows the battery level.
 
 It comes as a menu-bar app with its own window, and as a command-line tool.
 
@@ -37,13 +41,17 @@ It comes as a menu-bar app with its own window, and as a command-line tool.
 - **Keyboard**: Ajazz AK820 Pro, wired USB IDs `0C45:8009` / `0C45:800A` with the vendor
   interface `0xFF13` (run `python3 ak820.py buscar` to check), and its 2.4 GHz receiver
   (`0C45:FDFD`). Some newer AK820 Pro firmwares use a different protocol and won't be
-  detected. Bluetooth can't be used to configure anything.
+  detected. Bluetooth can't be used to configure anything. Boxes that say **Ajazz ×
+  Nacodex** are the same keyboard: what matters is the USB ID (at least one Nacodex unit
+  reports `1A2C:9605`, and that one isn't detected).
 - **Layout**: the key drawing is the ANSI (US) one from the official software. ISO
   keyboards may have one or two keys in different places.
 - **Mac**: tested on Apple Silicon with macOS 26. You build it on your own Mac, so Intel
   should work too. Music mode needs **macOS 14.2** or later; the rest should also work
   on older versions.
-- **Language**: the app is in Spanish for now (translations welcome).
+- **Language**: English or Spanish, following the Mac's language (System Settings →
+  General → Language & Region). To add a language, translate `idiomas/en.json` into
+  `idiomas/<code>.json` (`idiomas/frases.py` lists the phrases).
 
 ## Installation
 
@@ -67,10 +75,11 @@ The first time you use music mode, macOS asks for permission to **record system 
 
 ## Using it
 
-- **The app**: the window opens when you start AK820, with four tabs: **Teclas** (keys),
-  **Luces** (lights), **Pantalla** (screen) and **Ajustes** (settings). The ⌨︎ icon in the
-  menu bar has quick actions too (lights, music mode, clock, sleep…). While it's busy the
-  icon shows `⌨︎…`, `⌨︎ 45 %` or `⌨︎ ♪`.
+- **The app**: the window opens when you start AK820, with five tabs: **Keys**,
+  **Lights**, **Screen**, **Settings** and **Help**. The ⌨︎ icon in the menu bar has quick
+  actions too (lights, music mode, clock, sleep…), and shows the battery when the
+  keyboard is on the 2.4 GHz receiver. While it's busy the icon shows `⌨︎…`, `⌨︎ 45 %` or
+  `⌨︎ ♪`.
 - **The command line** (from the project folder):
 
   ```sh
@@ -84,11 +93,15 @@ The first time you use music mode, macOS asks for permission to **record system 
   python3 ak820.py teclas avpag=cmd+a repag=texto:Hi    # remap keys (see: teclas lista)
   python3 ak820.py teclas restaurar todo               # all keys back to factory
   python3 ak820.py sistema --fn-modo alternar          # settings (see: sistema --help)
+  python3 ak820.py bateria                             # battery (2.4 GHz receiver only)
+  python3 ak820.py reenviar                            # send the saved setup again
+  python3 ak820.py fabrica --si                        # everything back to factory
   ```
 
 The keyboard doesn't let you read its configuration back, so the program remembers
 what it last sent in `~/Library/Application Support/ak820-mac/` (keys, colors, lights,
-settings and a copy of the screen image).
+settings and a copy of the screen image). If the keyboard gets reset or you set it up
+on another computer, **Send my configuration again** (or `reenviar`) puts it back.
 
 ## How it works
 
@@ -110,6 +123,14 @@ The project is a few Python files with no framework:
 | `tests/` | Tests against a fake keyboard: `.venv/bin/python -m unittest discover -s tests` |
 | `extras/` | Optional macOS remaps (Right Ctrl → 🌐 Globe, Home → F13) and a launcher for development |
 
+## Other projects
+
+If you'd rather replace the keyboard's firmware,
+[fpb/ajazz-ak820-pro](https://github.com/fpb/ajazz-ak820-pro) ports **QMK** to it. It's
+a different approach: this app talks to the stock firmware and doesn't work with QMK, and
+there are several hardware revisions of the keyboard, so read their notes before
+flashing anything.
+
 ## Credits
 
 Part of the protocol was first decoded by the community, in MIT-licensed projects:
@@ -119,4 +140,5 @@ Part of the protocol was first decoded by the community, in MIT-licensed project
 [gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac).
 
 MIT license (see [LICENSE](LICENSE)). Unofficial project, not affiliated with Ajazz or Epomaker. Use at your own risk: it
-writes to the keyboard's memory (everything can be reset to factory from the app).
+writes to the keyboard's memory (everything can be reset to factory from the app, or on
+the keyboard by holding Fn + Space for 3–5 seconds).

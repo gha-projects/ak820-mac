@@ -42,6 +42,7 @@
   .tecla .et { font-size: 12px; font-weight: 600; white-space: nowrap; }
   .tecla .mac { position: absolute; right: 5px; top: 3px; font-size: 11px; color: var(--suave); }
   .tecla .asig { font-size: 10.5px; line-height: 1.15; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--acento-texto); font-weight: 600; }
+  .tecla .fabrica { font-size: 10px; line-height: 1.15; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--suave); }
   .tecla.cambiada { background: var(--acento-suave); border-color: var(--acento); }
   .tecla.pendiente { background: var(--pendiente-suave); border-color: var(--pendiente); }
   .tecla.pendiente .asig { color: var(--pendiente); }
@@ -115,6 +116,14 @@
   .marco-pintura { background: #0e0f13; border-radius: 14px; padding: 14px; margin-top: 10px; overflow: hidden; }
   .muestra.goma { background: repeating-linear-gradient(135deg, #fff, #fff 4px, #d0d0d6 4px, #d0d0d6 8px); }
   .muestra.negra { background: #000 !important; }
+  .boton.peligro { border-color: var(--error); color: var(--error); }
+  #ayuda h2 { margin-top: 24px; }
+  #ayuda h2:first-child { margin-top: 0; }
+  #ayuda table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  #ayuda td, #ayuda th { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  #ayuda th { color: var(--suave); font-weight: 600; }
+  #ayuda kbd { font: 600 12px ui-monospace, Menlo, monospace; border: 1px solid var(--tecla-borde); border-bottom-width: 2px;
+               border-radius: 5px; padding: 1px 6px; background: var(--tecla); white-space: nowrap; }
   #ajuste-fn .opciones { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); max-width: 760px; }
   [data-pestana="ajustes"] .deslizadores { max-width: 440px; }
 </style>
@@ -128,6 +137,7 @@
       <button type="button" data-ir="luces" aria-pressed="false" data-t>Luces</button>
       <button type="button" data-ir="pantalla" aria-pressed="false" data-t>Pantalla</button>
       <button type="button" data-ir="ajustes" aria-pressed="false" data-t>Ajustes</button>
+      <button type="button" data-ir="ayuda" aria-pressed="false" data-t>Ayuda</button>
     </div>
     <span id="conexion" class="conexion" data-t>Comprobando…</span>
   </header>
@@ -257,6 +267,21 @@
       </div>
       <p class="estado-linea" id="estado-ajustes"></p>
     </section>
+    <section class="tarjeta" style="margin-top: 16px">
+      <h2 data-t>Volver a empezar</h2>
+      <p class="nota" data-t>«Volver a mandar» envía al teclado lo que este Mac tiene guardado (teclas, luces o colores y
+        ajustes): sirve si el teclado se ha reseteado o lo has usado en otro ordenador. «De fábrica» lo deja como
+        nuevo; en el propio teclado se hace manteniendo Fn + Espacio de 3 a 5 segundos.</p>
+      <div class="botones">
+        <button type="button" class="boton" id="reenviar-todo" data-t>Volver a mandar mi configuración</button>
+        <button type="button" class="boton peligro" id="todo-fabrica" data-t>Dejar el teclado de fábrica</button>
+      </div>
+      <p class="estado-linea" id="estado-reinicio"></p>
+    </section>
+  </div>
+
+  <div data-pestana="ayuda" hidden>
+    <section class="tarjeta" id="ayuda"></section>
   </div>
 </main>
 
@@ -360,6 +385,50 @@ function pendientes() {
 }
 const bloqueada = (t) => !t.nombre || (capa === "fn" && catalogo.no_cambiables_fn.includes(t.nombre));
 
+// Lo que hace cada tecla con Fn de fábrica (manual del AK820 Pro). [corto para el dibujo, explicación]
+const FABRICA_FN = {
+  q: [tr("BT 1"), tr("Bluetooth 1 (manteniéndola 3 s: emparejar)")],
+  w: [tr("BT 2"), tr("Bluetooth 2 (manteniéndola 3 s: emparejar)")],
+  e: [tr("BT 3"), tr("Bluetooth 3 (manteniéndola 3 s: emparejar)")],
+  r: ["2.4G", tr("Manteniéndola 3 s: emparejar el receptor 2.4G")],
+  "\\": [tr("Efecto"), tr("Cambiar de efecto de luz (hay 20)")],
+  arriba: [tr("Brillo +"), tr("Más brillo en las luces")],
+  abajo: [tr("Brillo −"), tr("Menos brillo en las luces")],
+  izquierda: ["⇄", tr("Cambiar el sentido del efecto")],
+  derecha: [tr("Color"), tr("Cambiar el color de las luces")],
+  "-": [tr("Vel−"), tr("Efecto más lento")],
+  "=": [tr("Vel+"), tr("Efecto más rápido")],
+  x: [tr("Luces"), tr("Apagar o encender las luces")],
+  espacio: [tr("Reset (3 s)"), tr("Manteniéndola 3-5 s: todo el teclado de fábrica")],
+  "1": ["FPS", tr("Luces de juego 1 (FPS: W A S D y flechas)")],
+  "2": ["LOL", tr("Luces de juego 2 (LOL)")],
+  "3": [tr("Oficina"), tr("Luces de juego 3 (oficina: letras y flechas)")],
+  "`": [tr("Grabar"), tr("Grabar los colores de las luces de juego (cada pulsación, un color)")],
+  repag: [tr("ImprPant"), tr("Impr Pant (captura de pantalla en Windows)")],
+  avpag: [tr("Pausa"), tr("Pausa")],
+  win: [tr("Bloq Win"), tr("Bloquear la tecla Win (se enciende la luz W)")],
+  supr: [tr("Pantalla"), tr("Pantalla: animación ↔ reloj")],
+  inicio: [tr("Pantalla"), tr("Apagar o encender la pantalla")],
+};
+// F1–F12 con Fn: lo corto para el dibujo (modo Mac) y [Mac, Windows]
+const FABRICA_F_CORTO = ["☀︎−", "☀︎+", "Mission", "Console", "⌨︎☀︎−", "⌨︎☀︎+", "⏮", "⏯", "⏭", "🔇", "🔉", "🔊"];
+const FABRICA_F = [
+  [tr("Brillo de la pantalla −"), tr("Reproductor")], [tr("Brillo de la pantalla +"), tr("Volumen −")],
+  ["Mission Control", tr("Volumen +")], ["Console", tr("Silencio")],
+  [tr("Brillo del teclado −"), tr("Reproducir / parar")], [tr("Brillo del teclado +"), tr("Canción anterior")],
+  [tr("Canción anterior"), tr("Reproducir / pausa")], [tr("Reproducir / pausa"), tr("Canción siguiente")],
+  [tr("Canción siguiente"), tr("Correo")], [tr("Silencio"), tr("Navegador")],
+  [tr("Volumen −"), tr("Mi PC")], [tr("Volumen +"), tr("Calculadora")],
+];
+function fabricaFn(nombre) {
+  const f = /^f(\d+)$/.exec(nombre || "");
+  if (f && +f[1] >= 1 && +f[1] <= 12) {
+    const [mac, win] = FABRICA_F[+f[1] - 1];
+    return [FABRICA_F_CORTO[+f[1] - 1], tr("Mac: {mac} · Windows: {win}", { mac, win })];
+  }
+  return FABRICA_FN[nombre];
+}
+
 // --- Comunicación con el servidor ----------------------------------------------------
 async function api(ruta, cuerpo) {
   const opciones = { headers: { "X-Clave": CLAVE } };
@@ -400,7 +469,9 @@ function dibujarTeclado() {
     b.append(et);
     if (bloqueada(t)) {
       b.disabled = true;
-      b.title = t.nombre ? tr("Esta tecla no se puede cambiar en la capa Fn") : tr("La tecla Fn no se puede cambiar");
+      const fabrica = capa === "fn" && fabricaFn(t.nombre);
+      b.title = fabrica ? tr("Fn + {tecla}: {funcion} (no se puede cambiar)", { tecla: tr(t.etiqueta), funcion: fabrica[1] })
+              : t.nombre ? tr("Esta tecla no se puede cambiar en la capa Fn") : tr("La tecla Fn no se puede cambiar");
     } else {
       const asig = actual[capa][t.nombre];
       if (t.mac && !asig) {
@@ -416,6 +487,13 @@ function dibujarTeclado() {
         a.textContent = resumen(asig);
         b.append(a);
         b.title = describir(asig);
+      } else if (capa === "fn" && fabricaFn(t.nombre)) {
+        const [corto, largo] = fabricaFn(t.nombre);
+        const f = document.createElement("span");
+        f.className = "fabrica";
+        f.textContent = corto;
+        b.append(f);
+        b.title = tr("De fábrica: {funcion}", { funcion: largo });
       }
       if (!igual(asig, guardado[capa][t.nombre])) b.classList.add("pendiente");
       else if (asig) b.classList.add("cambiada");
@@ -581,7 +659,8 @@ function dibujarPanel() {
   const ahora = document.createElement("p");
   ahora.className = "ahora";
   const enTeclado = guardado[capa][elegida];
-  ahora.textContent = tr("En el teclado: ") + describir(enTeclado) +
+  const fabrica = !enTeclado && capa === "fn" && fabricaFn(elegida);
+  ahora.textContent = tr("En el teclado: ") + (fabrica ? tr("de fábrica, {funcion}", { funcion: fabrica[1] }) : describir(enTeclado)) +
     (igual(actual[capa][elegida], enTeclado) ? "" : tr(" · Sin enviar: ") + describir(actual[capa][elegida]));
   const tipos = document.createElement("div");
   tipos.className = "segmentos";
@@ -777,7 +856,7 @@ async function vigilarConexion() {
   const c = document.getElementById("conexion");
   try {
     const r = await api("/api/conexion");
-    ponerConexion(r.conexion);
+    ponerConexion(r.conexion, r.bateria);
     ponerEstadoMusica(r.musica, r.musica_error);
     if (r.progreso != null) document.getElementById("progreso").value = r.progreso;
   } catch (e) {
@@ -789,9 +868,10 @@ setInterval(vigilarConexion, 3000);
 
 // Por el receptor 2.4G no se pueden mandar ni imágenes ni colores tecla a tecla.
 let modoConexion = null;
-function ponerConexion(modo) {
+function ponerConexion(modo, bateria) {
   const c = document.getElementById("conexion");
-  c.textContent = { cable: tr("Conectado por cable"), "2.4g": tr("Conectado con el receptor 2.4G") }[modo] || tr("Sin conectar");
+  c.textContent = ({ cable: tr("Conectado por cable"), "2.4g": tr("Conectado con el receptor 2.4G") }[modo] || tr("Sin conectar"))
+    + (bateria ? " · 🔋 " + tr("{porcentaje} %", { porcentaje: bateria }) : "");
   c.className = "conexion " + (modo ? "si" : "no");
   if (modo !== modoConexion) {
     modoConexion = modo;
@@ -1258,6 +1338,79 @@ async function guardarAjustes(cuerpo) {
   dibujarAjustes();
 }
 
+// --- Ayuda: qué hace cada cosa del teclado (manual del AK820 Pro) ---------------------------------
+function dibujarAyuda() {
+  const ayuda = document.getElementById("ayuda");
+  ayuda.replaceChildren();
+  const titulo = (texto) => { const h = document.createElement("h2"); h.textContent = texto; ayuda.append(h); };
+  const tabla = (cabecera, filas) => {
+    const t = document.createElement("table");
+    if (cabecera) {
+      const tr_ = t.insertRow();
+      for (const c of cabecera) { const th = document.createElement("th"); th.textContent = c; tr_.append(th); }
+    }
+    for (const fila of filas) {
+      const f = t.insertRow();
+      fila.forEach((celda, i) => {
+        const td = f.insertCell();
+        if (i === 0) for (const parte of celda.split(" + ")) {
+          if (td.childNodes.length) td.append(" + ");
+          const k = document.createElement("kbd"); k.textContent = parte; td.append(k);
+        } else td.textContent = celda;
+      });
+    }
+    ayuda.append(t);
+  };
+  titulo(tr("Las luces junto a RePág"));
+  tabla(null, [["C", tr("Bloq Mayús: encendida en blanco, escribe en mayúsculas.")],
+               ["W", tr("Tecla Win bloqueada (se pone y se quita con Fn + Win).")],
+               ["🔋", tr("Batería: rojo parpadeando, poca batería; rojo fijo, cargando; apagada, cargada.")]]);
+  titulo(tr("Interruptores de atrás"));
+  tabla(null, [["BT · USB · 2.4G", tr("Bluetooth, cable (y carga) o receptor 2.4G. Para configurarlo: cable o 2.4G.")],
+               ["Win · Mac", tr("Sistema. En modo Mac, Win hace de ⌥ Option y Alt de ⌘ Cmd.")]]);
+  titulo(tr("La rueda"));
+  tabla(null, [[tr("Girar"), tr("Subir o bajar el volumen.")], [tr("Pulsar"), tr("Silencio.")],
+               ["Fn + " + tr("Rueda"), tr("Menú de ajustes en la pantalla (la rueda elige, pulsar confirma).")]]);
+  titulo(tr("Atajos con Fn de fábrica"));
+  const etiquetas = Object.fromEntries(distribucion.filter((t) => t.nombre).map((t) => [t.nombre, tr(t.etiqueta || "Espacio")]));
+  tabla(null, Object.entries(FABRICA_FN).map(([nombre, [, largo]]) => ["Fn + " + (etiquetas[nombre] || nombre), largo]));
+  tabla([tr("Atajo"), "Mac", "Windows"], FABRICA_F.map(([mac, win], i) => [`Fn + F${i + 1}`, mac, win]));
+  const nota = document.createElement("p");
+  nota.className = "nota";
+  nota.textContent = tr("Lo que pongas en la capa Fn de la pestaña Teclas sustituye a estos atajos. Los que salen en gris en el dibujo no se pueden cambiar. Según el manual del AK820 Pro.");
+  ayuda.append(nota);
+}
+
+// --- Volver a mandar lo guardado / dejar de fábrica ------------------------------------------------
+async function reinicio(ruta, textoHecho) {
+  const estado = document.getElementById("estado-reinicio");
+  estado.textContent = tr("Enviando…");
+  for (const id of ["reenviar-todo", "todo-fabrica"]) document.getElementById(id).disabled = true;
+  try {
+    const r = await api(ruta, {});
+    if (r.ok) {
+      guardado = r.config;
+      actual = copia(r.config);
+      ponerLuces(r.luces);
+      coloresGuardados = r.colores; colores = copia(r.colores);
+      ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes);
+      pantalla = r.pantalla;
+      estado.textContent = textoHecho;
+      dibujarTeclado(); dibujarLuces(); dibujarPantalla(); dibujarAjustes();
+    } else {
+      estado.textContent = "";
+      avisar(r.mensaje, "error");
+    }
+  } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
+  for (const id of ["reenviar-todo", "todo-fabrica"]) document.getElementById(id).disabled = false;
+}
+document.getElementById("reenviar-todo").addEventListener("click", () =>
+  reinicio("/api/reenviar", tr("Configuración de este Mac mandada al teclado ✓")));
+document.getElementById("todo-fabrica").addEventListener("click", () => {
+  if (confirm(tr("¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes, en el teclado y en este Mac.")))
+    reinicio("/api/fabrica", tr("Teclado de fábrica ✓"));
+});
+
 // --- Carga y vuelta a la ventana -----------------------------------------------------------------
 function aplicarEstado(r, primeraVez) {
   if (primeraVez) {
@@ -1302,6 +1455,7 @@ window.addEventListener("focus", async () => {
     prepararPantalla();
     prepararAjustes();
     aplicarEstado(r, true);
+    dibujarAyuda();
     let inicial = "teclas";
     try { inicial = localStorage.getItem("ak820-pestana") || "teclas"; } catch (e) { /* da igual */ }
     irA(document.querySelector(`[data-ir="${inicial}"]`) ? inicial : "teclas");

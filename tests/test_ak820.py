@@ -86,9 +86,10 @@ class Conexion:
 class ReceptorFalso:
     """Imita el receptor 2.4G: apunta las tramas y contesta repitiendo sus 3 primeros bytes."""
 
-    def __init__(self, sin_respuesta=False):
+    def __init__(self, sin_respuesta=False, bateria=87):
         self.tramas = []
         self.sin_respuesta = sin_respuesta
+        self.bateria = bateria
 
     def open_path(self, _ruta):
         pass
@@ -106,7 +107,9 @@ class ReceptorFalso:
     def read(self, _n, _espera=0):
         if self.sin_respuesta or not self.tramas:
             return []
-        return list(self.tramas[-1][:3]) + [0] * 29
+        ultima = self.tramas[-1]
+        dato = self.bateria if ultima[0] == 0x20 else 0              # la consulta de batería
+        return list(ultima[:3]) + [dato] + [0] * 28
 
     def ordenes(self):
         return [t[0] for t in self.tramas]
@@ -372,6 +375,52 @@ class Receptor24G(ConTecladoFalso):
         codigo, salida = self.orden("buscar")
         self.assertEqual(codigo, 0)
         self.assertIn("receptor 2.4G", salida)
+
+
+class FabricaYReenviar(ConTecladoFalso):
+    def test_fabrica_pide_confirmacion(self):
+        codigo, salida = self.orden("fabrica")
+        self.assertEqual(codigo, 0)
+        self.assertIn("--si", salida)
+        self.assertEqual(self.teclado.paquetes, [])
+
+    def test_fabrica(self):
+        ak820.guardar_teclas({"normal": {"avpag": {"destino": "texto:hola"}}, "fn": {}})
+        self.assertEqual(self.orden("fabrica", "--si")[0], 0)
+        ordenes = self.teclado.ordenes()
+        # macros vacías, las dos capas, colores, luces de fábrica, sistema y reloj
+        for orden in (0x19, 0x15, 0x11, 0x27, 0x23, 0x13, 0x17, 0x28):
+            self.assertIn(orden, ordenes)
+        self.assertEqual(ak820.cargar_teclas(), {"normal": {}, "fn": {}})
+        self.assertEqual(ak820.cargar_luces()["efecto"], "rodar")
+        self.assertEqual(ak820.cargar_ajustes(), ak820.AJUSTES_DEFECTO)
+
+    def test_reenviar(self):
+        ak820.guardar_teclas({"normal": {"repag": {"destino": "b"}}, "fn": {}})
+        self.orden("luces", "respirar", "--color", "FF0000")
+        self.teclado.paquetes.clear()
+        self.assertEqual(self.orden("reenviar")[0], 0)
+        ordenes = self.teclado.ordenes()
+        self.assertTrue({0x11, 0x27, 0x13, 0x17} <= set(ordenes))
+        self.assertEqual(self.teclado.datos().count(bytes([0x02, 0x00, 0x05, 0x00])), 1)   # RePág = b
+
+    def test_bateria_por_cable(self):
+        codigo, salida = self.orden("bateria")
+        self.assertEqual(codigo, 1)
+        self.assertIn("Por cable", salida)
+
+
+class BateriaPorReceptor(ConTecladoFalso):
+    receptor = ReceptorFalso
+
+    def test_bateria(self):
+        codigo, salida = self.orden("bateria")
+        self.assertEqual((codigo, salida.strip()), (0, "Batería: 87 %"))
+        self.assertEqual(self.rx.tramas[-1][:4].hex(" "), "20 01 00 00")
+
+    def test_fabrica_sin_colores(self):
+        self.assertEqual(self.orden("fabrica", "--si")[0], 0)
+        self.assertEqual([o for o in dict.fromkeys(self.rx.ordenes())], [0x09, 0x10, 0x12, 0x05, 0x07, 0x0C])
 
 
 class ReceptorSinTeclado(ConTecladoFalso):

@@ -397,9 +397,12 @@ class AppAK820(rumps.App):
             return
         if conectado != self.conectado:
             self.conectado = conectado
-            self.item_estado.title = tr({"cable": "Teclado: conectado por cable ✓",
-                                         "2.4g": "Teclado: con el receptor 2.4G ✓"}.get(conectado, "Teclado: sin conectar"))
             self.reloj_pendiente = conectado is not None
+        estado = tr({"cable": "Teclado: conectado por cable ✓",
+                     "2.4g": "Teclado: con el receptor 2.4G ✓"}.get(conectado, "Teclado: sin conectar"))
+        if conectado == "2.4g" and self.editor.bateria() is not None:
+            estado += " · 🔋 " + tr("{porcentaje} %", porcentaje=self.editor.bateria())
+        self.item_estado.title = estado
         if self.reloj_pendiente and not self.candado.locked():
             self.reloj_pendiente = False
             if self.preferencias["hora_al_conectar"] and ak820.modo_pantalla() == "reloj":

@@ -145,6 +145,13 @@ save. The driver waits only 5 ms around the commands and 2 ms between packets, w
 gives about 23 frames per second. When frames stop, the keyboard goes back to its saved
 effect. Music mode over the cable is the host drawing an equalizer with this.
 
+### Factory reset
+
+There's no reset command. The official driver's "Factory Reset" just sends its default
+profile again: empty key tables on both layers, no macros, lighting effect `0B` with
+rainbow on, brightness 5 and speed 3, and the factory system settings. On the keyboard
+itself, holding Fn + Space for 3–5 seconds resets it.
+
 ### Screen image — `04 18` (byte 8 = 0), `04 72`, blocks, `04 02`
 
 `04 72` with byte 2 = slot `1` and bytes 8–9 = number of 4096-byte blocks. Then each
@@ -178,7 +185,7 @@ asleep (battery sleep timer), nothing answers until a key is pressed.
 | `03` / `0D` one key, normal / Fn | length 4, chunk number = key index, data = the 4-byte slot |
 | `09` macros | the same block padded to a multiple of 28 (`AA 55` at the end); the last chunk's length is `len % 28` |
 | `0B` music spectrum | `[mode, background, background brightness]` + 21 bar heights (rows lit per column, 0–6); the keyboard draws the bars |
-| `20 01` battery | reply byte 3 = battery % (0 = unknown) |
+| `20` battery | data `00`; the reply's byte 3 is the battery % (0 = unknown). The wired protocol has no battery read: over the cable only the keyboard's screen shows it |
 
 Per-key colors and screen images can't go through the receiver (the driver doesn't
 send them either).

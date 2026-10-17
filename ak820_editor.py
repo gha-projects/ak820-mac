@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -221,6 +222,7 @@ class Editor:
         self.clave = secrets.token_urlsafe(18)
         self.servidor = None
         self.progreso = None                         # % de la imagen que se está enviando
+        self._bateria, self._bateria_cuando, self._leyendo_bateria = None, -1e9, False
         self.musica_modo = None                      # el modo música en marcha, o None
         self.musica_error = ""
         self._parar_musica = threading.Event()
@@ -311,6 +313,28 @@ class Editor:
         if sin_teclado(lineas):
             return False, SIN_TECLADO
         return False, " ".join(utiles(lineas)) or tr("Algo ha fallado.")
+
+    # --- Batería (solo con el receptor 2.4G) ---------------------------------------------------
+    def bateria(self):
+        """La última batería leída (None si no se sabe). Se vuelve a leer, en segundo plano y
+        sin estorbar a otras operaciones, como mucho una vez por minuto."""
+        if time.monotonic() - self._bateria_cuando > 60 and not self._leyendo_bateria:
+            self._leyendo_bateria = True
+            threading.Thread(target=self._leer_bateria, daemon=True).start()
+        return self._bateria
+
+    def _leer_bateria(self):
+        try:
+            if self.candado.acquire(blocking=False):
+                try:
+                    self._bateria = ak820.bateria()
+                finally:
+                    self.candado.release()
+                self._bateria_cuando = time.monotonic()
+        except Exception:
+            pass
+        finally:
+            self._leyendo_bateria = False
 
     # --- Modo música (en un hilo, con el teclado reservado mientras dura) -----------------------
     def empezar_musica(self, modo):
@@ -425,7 +449,9 @@ class Manejador(BaseHTTPRequestHandler):
             with open(vista, "rb") as f:
                 return self.responder(200, f.read(), "image/gif" if vista.endswith(".gif") else "image/png")
         if ruta == "/api/conexion":
-            return self.responder(200, {"conexion": conexion(), "ocupado": editor.candado.locked(),
+            modo = conexion()
+            return self.responder(200, {"conexion": modo, "ocupado": editor.candado.locked(),
+                                        "bateria": editor.bateria() if modo == "2.4g" else None,
                                         "musica": editor.musica_modo, "musica_error": editor.musica_error,
                                         "progreso": editor.progreso})
         self.responder(404, {"error": "no existe"})
@@ -488,6 +514,11 @@ class Manejador(BaseHTTPRequestHandler):
             else:
                 bien, mensaje = editor.empezar_musica(datos.get("modo"))
             return self.resultado(bien, mensaje, musica=editor.musica_modo)
+        if ruta in ("/api/fabrica", "/api/reenviar"):
+            bien, mensaje = editor.orden(["fabrica", "--si"] if ruta == "/api/fabrica" else ["reenviar"])
+            return self.resultado(bien, mensaje, config=ak820.cargar_teclas(), luces=ak820.cargar_luces(),
+                                  colores=ak820.cargar_colores(), ajustes=ajustes_para_pagina(),
+                                  pantalla=pantalla_para_pagina())
         if ruta == "/api/apagar":
             bien, mensaje = editor.orden(["luces", "apagado"])
             return self.resultado(bien, mensaje)
