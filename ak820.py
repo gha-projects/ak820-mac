@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Configurador mínimo del teclado Ajazz AK820 Pro para macOS.
 
-Reloj, luces RGB e imagen de la pantalla.
+Teclas y macros, luces, pantalla, reloj, ajustes y modo música, por cable o con el
+receptor 2.4G.
 
 Cómo funciona, en pocas palabras:
   - El teclado se conecta por USB y expone varias "interfaces HID".
@@ -12,11 +13,8 @@ Cómo funciona, en pocas palabras:
   - Cada cambio es una pequeña conversación: EMPEZAR -> qué vamos a cambiar
     -> los datos -> CONFIRMAR.
 
-El protocolo lo descifró la comunidad (proyectos con licencia MIT):
-gohv/EPOMAKER-Ajazz-AK820-Pro, TaxMachine/ajazz-keyboard-software-linux,
-Aiacos/ajazz-control-center y gusleig/ajazz-ak820-pro-mac.
-
-Solo funciona con el teclado conectado por CABLE USB-C (no Bluetooth ni 2.4G).
+Sale del análisis del programa oficial (docs/PROTOCOL.md) y de lo que descubrió antes la
+comunidad: ver «Créditos» en el README. Por Bluetooth no se puede configurar.
 """
 import argparse
 import colorsys

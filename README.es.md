@@ -151,11 +151,30 @@ nada.
 
 ## Créditos
 
-Parte del protocolo lo descifró antes la comunidad, en proyectos con licencia MIT:
-[gohv/EPOMAKER-Ajazz-AK820-Pro](https://github.com/gohv/EPOMAKER-Ajazz-AK820-Pro),
-[TaxMachine/ajazz-keyboard-software-linux](https://github.com/TaxMachine/ajazz-keyboard-software-linux),
-[Aiacos/ajazz-control-center](https://github.com/Aiacos/ajazz-control-center) y
-[gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac).
+Es un programa nuevo y no copia código de otros proyectos, pero mucho de lo que sabe del
+teclado lo descubrió antes la comunidad:
+
+- [gohv/EPOMAKER-Ajazz-AK820-Pro](https://github.com/gohv/EPOMAKER-Ajazz-AK820-Pro): luces, reposo y
+  reloj en Linux. Su incidencia #6 (imágenes rotas en el modelo `800A`) señaló el
+  problema de la pantalla.
+- [TaxMachine/ajazz-keyboard-software-linux](https://github.com/TaxMachine/ajazz-keyboard-software-linux):
+  la primera referencia abierta de la interfaz de configuración y de la subida de
+  imágenes.
+- [KyleBoyer/TFTTimeSync-node](https://github.com/KyleBoyer/TFTTimeSync-node): el paquete del reloj.
+- [Aiacos/ajazz-control-center](https://github.com/Aiacos/ajazz-control-center): notas del protocolo de
+  varios teclados Ajazz, y el Nacodex con otro identificador USB.
+- [gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac): la primera herramienta
+  de Mac para este mismo modelo. Sus pruebas de remapeo mostraron qué formatos no
+  funcionan.
+- [nurlanjalil/ajazz-ak820-config](https://github.com/nurlanjalil/ajazz-ak820-config) y
+  [aar-rafi/aks075-linux](https://github.com/aar-rafi/aks075-linux): el formato de imagen de la pantalla
+  del programa oficial (en el AKS075, un modelo hermano).
+- [allshouldbeready/ak820-pro-macos](https://github.com/allshouldbeready/ak820-pro-macos) y
+  [wsclx/ak820pro-modder](https://github.com/wsclx/ak820pro-modder): el byte del hueco de imagen, la
+  pregunta de la batería al receptor y los problemas con los que se encuentra la gente
+  (sus incidencias).
+
+Cada proyecto tiene su licencia (MIT, GPL o ninguna indicada): mira sus páginas.
 
 Licencia MIT (ver [LICENSE](LICENSE)). Proyecto no oficial, sin relación con Ajazz ni Epomaker. Úsalo bajo tu responsabilidad:
 escribe en la memoria del teclado (todo se puede dejar de fábrica desde la app, o en el

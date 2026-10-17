@@ -138,11 +138,27 @@ flashing anything.
 
 ## Credits
 
-Part of the protocol was first decoded by the community, in MIT-licensed projects:
-[gohv/EPOMAKER-Ajazz-AK820-Pro](https://github.com/gohv/EPOMAKER-Ajazz-AK820-Pro),
-[TaxMachine/ajazz-keyboard-software-linux](https://github.com/TaxMachine/ajazz-keyboard-software-linux),
-[Aiacos/ajazz-control-center](https://github.com/Aiacos/ajazz-control-center) and
-[gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac).
+This is a new implementation and copies no code from other projects, but a lot of what
+it knows about the keyboard was first worked out by the community:
+
+- [gohv/EPOMAKER-Ajazz-AK820-Pro](https://github.com/gohv/EPOMAKER-Ajazz-AK820-Pro): lighting, sleep
+  timer and clock on Linux. Its issue #6 (garbled images on the `800A` model) pointed to
+  the screen problem.
+- [TaxMachine/ajazz-keyboard-software-linux](https://github.com/TaxMachine/ajazz-keyboard-software-linux):
+  the first open reference for the configuration interface and image upload.
+- [KyleBoyer/TFTTimeSync-node](https://github.com/KyleBoyer/TFTTimeSync-node): the clock packet.
+- [Aiacos/ajazz-control-center](https://github.com/Aiacos/ajazz-control-center): protocol notes for
+  several Ajazz keyboards, and the Nacodex unit with another USB ID.
+- [gusleig/ajazz-ak820-pro-mac](https://github.com/gusleig/ajazz-ak820-pro-mac): the first macOS tool
+  for this same model. Its key-remapping experiments showed which formats don't work.
+- [nurlanjalil/ajazz-ak820-config](https://github.com/nurlanjalil/ajazz-ak820-config) and
+  [aar-rafi/aks075-linux](https://github.com/aar-rafi/aks075-linux): the official software's screen
+  image format (on the AKS075, a sibling model).
+- [allshouldbeready/ak820-pro-macos](https://github.com/allshouldbeready/ak820-pro-macos) and
+  [wsclx/ak820pro-modder](https://github.com/wsclx/ak820pro-modder): the image slot byte, the receiver's
+  battery query, and the problems people run into (their issues).
+
+Each project has its own license (MIT, GPL or none stated): see their pages.
 
 MIT license (see [LICENSE](LICENSE)). Unofficial project, not affiliated with Ajazz or Epomaker. Use at your own risk: it
 writes to the keyboard's memory (everything can be reset to factory from the app, or on
