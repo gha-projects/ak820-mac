@@ -41,20 +41,30 @@ It comes as a menu-bar app with its own window, and as a command-line tool.
 
 ## Compatibility
 
-- **Keyboard**: Ajazz AK820 Pro, wired USB IDs `0C45:8009` / `0C45:800A` with the vendor
-  interface `0xFF13` (run `python3 ak820.py buscar` to check), and its 2.4 GHz receiver
-  (`0C45:FDFD`). Some newer AK820 Pro firmwares use a different protocol and won't be
-  detected. Bluetooth can't be used to configure anything. Boxes that say **Ajazz ×
-  Nacodex** are the same keyboard: what matters is the USB ID (at least one Nacodex unit
-  reports `1A2C:9605`, and that one isn't detected).
+What matters is the keyboard's USB ID and interfaces, not the box: Ajazz, Epomaker and
+**Ajazz × Nacodex** all sell the AK820 Pro. `python3 ak820.py buscar` shows what your Mac
+sees.
+
+| Keyboard | Status |
+|---|---|
+| Cable, `0C45:800A` with interface `0xFF13` | ✅ Everything, tested on a real keyboard |
+| Cable, `0C45:8009` with interface `0xFF13` | 🟡 Should work (same protocol in the official driver), not tested yet |
+| 2.4 GHz receiver, `0C45:FDFD` | ✅ Keys, macros, lights, settings, clock and music mode. Per-key colors and the screen only by cable (like the official software). The battery isn't shown: the tested receiver always answers "unknown" |
+| Bluetooth, `0C45:FEFE` | ❌ It has no configuration interface |
+| Newer firmware with interface `0xFF67` | ❌ A different protocol |
+| `1A2C:9605` (seen on a Nacodex unit) | ❌ Different hardware |
+
+Is your keyboard not here, or does something fail?
+[Open an issue](../../issues/new/choose) and paste what `buscar` shows.
+
 - **Layout**: the key drawing is the ANSI (US) one from the official software. ISO
   keyboards may have one or two keys in different places.
 - **Mac**: tested on Apple Silicon with macOS 26. You build it on your own Mac, so Intel
   should work too. Music mode needs **macOS 14.2** or later; the rest should also work
   on older versions.
 - **Language**: English or Spanish, following the Mac's language (System Settings →
-  General → Language & Region). To add a language, translate `idiomas/en.json` into
-  `idiomas/<code>.json` (`idiomas/frases.py` lists the phrases).
+  General → Language & Region). To add a language, see
+  [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Installation
 

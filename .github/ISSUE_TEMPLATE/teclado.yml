@@ -1,0 +1,63 @@
+name: "My keyboard · Mi teclado"
+description: "Tell us whether ak820-mac works with your keyboard (or doesn't). / Cuéntanos si funciona con tu teclado."
+title: "[Keyboard] "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Reports from other keyboards are how this project learns about new versions.
+        You can write in English or Spanish. / Puedes escribir en inglés o en español.
+  - type: dropdown
+    id: resultado
+    attributes:
+      label: "Does it work? · ¿Funciona?"
+      options:
+        - "Everything I tried works · Todo lo que he probado funciona"
+        - "Some things don't work · Algunas cosas no funcionan"
+        - "It isn't detected · No lo detecta"
+    validations:
+      required: true
+  - type: textarea
+    id: buscar
+    attributes:
+      label: "Output of `buscar` · Lo que sale con `buscar`"
+      description: |
+        Plug the keyboard in by cable (or plug in the 2.4G receiver) and run, from the project folder:
+        Conecta el teclado por cable (o el receptor 2.4G) y ejecuta, desde la carpeta del proyecto:
+        `.venv/bin/python ak820.py buscar`
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: caja
+    attributes:
+      label: "Brand on the box · Marca de la caja"
+      placeholder: "Ajazz, Epomaker, Ajazz × Nacodex…"
+  - type: dropdown
+    id: distribucion
+    attributes:
+      label: "Layout · Distribución"
+      options:
+        - "ANSI (US, horizontal Enter)"
+        - "ISO (European, tall Enter · europea, Enter alto)"
+        - "Don't know · No lo sé"
+  - type: checkboxes
+    id: conexion
+    attributes:
+      label: "Tried with · Probado con"
+      options:
+        - label: "USB cable · cable"
+        - label: "2.4G receiver · receptor 2.4G"
+  - type: input
+    id: mac
+    attributes:
+      label: "Mac and macOS version · Mac y versión de macOS"
+      placeholder: "MacBook Air M2, macOS 26.1"
+    validations:
+      required: true
+  - type: textarea
+    id: detalles
+    attributes:
+      label: "What works and what doesn't · Qué funciona y qué no"
+      description: "Keys, macros, lights, per-key colors, screen, music mode, settings… / Teclas, macros, luces, colores, pantalla, modo música, ajustes…"

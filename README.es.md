@@ -41,20 +41,30 @@ Es una app de la barra de menús con su propia ventana, y también un programa d
 
 ## Con qué funciona
 
-- **Teclado**: Ajazz AK820 Pro, por cable con los identificadores USB `0C45:8009` o
-  `0C45:800A` y la interfaz `0xFF13` (`python3 ak820.py buscar` lo comprueba), y su
-  receptor 2.4G (`0C45:FDFD`). Algunos AK820 Pro con un firmware más nuevo usan otro
-  protocolo y no se detectan. Por Bluetooth no se puede configurar. Las cajas que ponen
-  **Ajazz × Nacodex** son el mismo teclado: lo que cuenta es el identificador USB (hay al
-  menos un Nacodex con `1A2C:9605`, y ese no se detecta).
+Lo que cuenta es el identificador USB del teclado y sus interfaces, no la caja: el AK820
+Pro lo venden Ajazz, Epomaker y **Ajazz × Nacodex**. `python3 ak820.py buscar` enseña lo
+que ve tu Mac.
+
+| Teclado | Estado |
+|---|---|
+| Cable, `0C45:800A` con la interfaz `0xFF13` | ✅ Todo, probado en un teclado de verdad |
+| Cable, `0C45:8009` con la interfaz `0xFF13` | 🟡 Debería ir (el programa oficial usa el mismo protocolo), sin probar todavía |
+| Receptor 2.4G, `0C45:FDFD` | ✅ Teclas, macros, luces, ajustes, hora y modo música. Los colores tecla a tecla y la pantalla, solo por cable (como en el programa oficial). La batería no sale: el receptor de las pruebas siempre contesta «no lo sé» |
+| Bluetooth, `0C45:FEFE` | ❌ No tiene interfaz de configuración |
+| Firmware más nuevo, con la interfaz `0xFF67` | ❌ Otro protocolo |
+| `1A2C:9605` (visto en un Nacodex) | ❌ Otro hardware |
+
+¿Tu teclado no está aquí, o algo falla?
+[Abre una incidencia](../../issues/new/choose) y pega lo que sale con `buscar`.
+
 - **Distribución**: el dibujo de las teclas es el ANSI (EE. UU.) del programa oficial. En
   un teclado ISO alguna tecla puede estar en otro sitio.
 - **Mac**: probado en Apple Silicon con macOS 26. Cada uno se la compila en su Mac, así
   que en Intel también debería ir. El modo música necesita **macOS 14.2** o posterior; lo
   demás debería funcionar también en versiones anteriores.
 - **Idioma**: español o inglés, según el idioma del Mac (Ajustes del Sistema → General →
-  Idioma y región). Para añadir otro, se traduce `idiomas/en.json` a
-  `idiomas/<código>.json` (`idiomas/frases.py` saca la lista de frases).
+  Idioma y región). Para añadir otro, mira [CONTRIBUTING.md](CONTRIBUTING.md) (en
+  inglés).
 
 ## Instalación
 

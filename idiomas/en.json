@@ -502,5 +502,7 @@
  "Recuperado lo que tenías antes de «de fábrica»; ahora se manda al teclado.": "Restored what you had before the factory reset; sending it to the keyboard now.",
  "Recuperar lo de antes de «de fábrica» ({fecha})": "Restore what I had before the factory reset ({fecha})",
  "recuperar lo que había antes del último «de fábrica» y mandarlo al teclado": "restore what you had before the last factory reset and send it to the keyboard",
- "¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes. En este Mac queda una copia para poder deshacerlo.": "Reset the keyboard to factory? Remapped keys, macros, per-key colors and settings are erased. This Mac keeps a copy so you can undo it."
+ "¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes. En este Mac queda una copia para poder deshacerlo.": "Reset the keyboard to factory? Remapped keys, macros, per-key colors and settings are erased. This Mac keeps a copy so you can undo it.",
+ "Esto es lo que ve tu Mac. Si tu teclado está en la lista, es una versión que este programa no conoce: cuéntalo en una incidencia en GitHub con esta lista.": "This is what your Mac sees. If your keyboard is on the list, it's a version this program doesn't know: tell us in a GitHub issue, with this list.",
+ "de fabricante": "vendor"
 }

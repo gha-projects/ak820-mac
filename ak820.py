@@ -574,10 +574,35 @@ def enviar(dispositivo, paquete):
 
 
 # --- Comandos del programa ---------------------------------------------------
+def otros_dispositivos():
+    """Los dispositivos HID que no son de Apple ("1A2C:9605  SONiX AK820 (…)"), para que quien
+    tenga otra versión del teclado pueda contar cuál es."""
+    vistos = {}
+    for i in hid.enumerate():
+        if i["vendor_id"] in (0, 0x05AC):              # 0x05AC = Apple
+            continue
+        nombre = " ".join(filter(None, [(i.get(c) or "").strip() for c in ("manufacturer_string", "product_string")])) or "?"
+        paginas = vistos.setdefault((i["vendor_id"], i["product_id"], nombre), set())
+        if i["usage_page"] >= 0xFF00:
+            paginas.add(i["usage_page"])
+    lineas = []
+    for (vid, pid, nombre), paginas in sorted(vistos.items()):
+        extra = ("  (" + tr("de fabricante") + ": " + ", ".join("0x%04X" % p for p in sorted(paginas)) + ")"
+                 if paginas else "")
+        lineas.append("%04X:%04X  %s%s" % (vid, pid, nombre, extra))
+    return lineas
+
+
 def cmd_buscar(_args):
     todas = hid.enumerate(VENDOR_ID)
     if not todas:
         print(tr("No veo ningún teclado AK820. ¿Está conectado por cable USB-C?"))
+        otros = otros_dispositivos()
+        if otros:
+            print("\n" + tr("Esto es lo que ve tu Mac. Si tu teclado está en la lista, es una versión que este "
+                            "programa no conoce: cuéntalo en una incidencia en GitHub con esta lista."))
+            for linea in otros:
+                print("  " + linea)
         return 1
     print(tr("Interfaces del teclado que ve tu Mac:"))
     for i in todas:

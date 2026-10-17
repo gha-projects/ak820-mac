@@ -1,0 +1,36 @@
+name: "Something doesn't work · Algo falla"
+description: "A bug in the app or the command line. / Un fallo de la app o de la terminal."
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "You can write in English or Spanish. / Puedes escribir en inglés o en español."
+  - type: textarea
+    id: que
+    attributes:
+      label: "What did you do, and what happened? · ¿Qué hiciste y qué pasó?"
+      description: "And what did you expect to happen? / ¿Y qué esperabas que pasara?"
+    validations:
+      required: true
+  - type: textarea
+    id: registro
+    attributes:
+      label: "App log · Registro de la app"
+      description: |
+        The last lines of `~/Library/Logs/ak820-app.log` (or what the command line printed).
+        Las últimas líneas de `~/Library/Logs/ak820-app.log` (o lo que salió en la terminal).
+      render: text
+  - type: textarea
+    id: buscar
+    attributes:
+      label: "Output of `buscar` · Lo que sale con `buscar`"
+      description: "`.venv/bin/python ak820.py buscar`, from the project folder / desde la carpeta del proyecto"
+      render: text
+  - type: input
+    id: mac
+    attributes:
+      label: "Mac and macOS version · Mac y versión de macOS"
+      placeholder: "MacBook Air M2, macOS 26.1"
+    validations:
+      required: true

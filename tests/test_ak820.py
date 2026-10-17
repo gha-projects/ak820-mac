@@ -377,6 +377,30 @@ class Receptor24G(ConTecladoFalso):
         self.assertIn("receptor 2.4G", salida)
 
 
+class BuscarOtroTeclado(unittest.TestCase):
+    """Con un teclado que no es el nuestro, `buscar` enseña lo que ve para poder contarlo."""
+
+    class Hid:
+        @staticmethod
+        def enumerate(vid=0):
+            if vid:
+                return []
+            return [{"vendor_id": 0x1A2C, "product_id": 0x9605, "usage_page": 0xFF67, "manufacturer_string": " SONiX ",
+                     "product_string": "AK820"},
+                    {"vendor_id": 0x1A2C, "product_id": 0x9605, "usage_page": 0x0001, "manufacturer_string": "SONiX",
+                     "product_string": "AK820"},
+                    {"vendor_id": 0x05AC, "product_id": 0x0342, "usage_page": 0xFF00, "manufacturer_string": "Apple",
+                     "product_string": "Teclado del Mac"}]
+
+    def test_otro_teclado(self):
+        salida = io.StringIO()
+        with mock.patch.object(ak820, "hid", self.Hid), redirect_stdout(salida):
+            codigo = ak820.main(["buscar"])
+        self.assertEqual(codigo, 1)
+        self.assertIn("1A2C:9605  SONiX AK820  (de fabricante: 0xFF67)", salida.getvalue())
+        self.assertNotIn("Apple", salida.getvalue())
+
+
 class FabricaYReenviar(ConTecladoFalso):
     def test_fabrica_pide_confirmacion(self):
         codigo, salida = self.orden("fabrica")
