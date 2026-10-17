@@ -196,7 +196,6 @@
  "Esta pestaña es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎ (Teclas → Editor de teclas…).": "This tab is from an earlier session. Open it again from the ⌨︎ menu (Keys → Key editor…).",
  "Esta tecla no se puede cambiar en la capa Fn": "This key can't be changed on the Fn layer",
  "Esta ventana es de una sesión anterior. Ábrela otra vez desde el menú ⌨︎.": "This window is from an earlier session. Open it again from the ⌨︎ menu.",
- "Esto deja el teclado de fábrica: teclas de las dos capas, macros, luces, colores tecla a tecla y ajustes (y pone el reloj en hora). Para hacerlo: python3 ak820.py fabrica --si": "This resets the keyboard to factory: keys on both layers, macros, lights, per-key colors and settings (and sets the clock). To do it: python3 ak820.py fabrica --si",
  "Está el receptor 2.4G: se pueden cambiar las luces, las teclas, las macros, los ajustes y la hora. Los colores tecla a tecla y la pantalla, solo por cable.": "The 2.4G receiver is there: lights, keys, macros, settings and the clock can be changed. Per-key colors and the screen, by cable only.",
  "Explosión": "Explode",
  "Falta el programa que escucha el sonido (musica/espectro) y no se ha podido compilar.": "The program that listens to the sound (musica/espectro) is missing and couldn't be compiled.",
@@ -468,7 +467,6 @@
  "{porcentaje} % enviado": "{porcentaje} % sent",
  "«Deshacer cambios» enseña lo que tiene ahora el teclado.": "“Undo changes” shows what the keyboard has now.",
  "«Volver a mandar» envía al teclado lo que este Mac tiene guardado (teclas, luces o colores y ajustes): sirve si el teclado se ha reseteado o lo has usado en otro ordenador. «De fábrica» lo deja como nuevo; en el propio teclado se hace manteniendo Fn + Espacio de 3 a 5 segundos.": "“Send again” sends the keyboard what this Mac has saved (keys, lights or colors, and settings): useful if the keyboard was reset or you used it on another computer. “Factory” leaves it as new; on the keyboard itself, hold Fn + Space for 3 to 5 seconds.",
- "¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes, en el teclado y en este Mac.": "Reset the keyboard to factory? Remapped keys, macros, per-key colors and settings will be erased, on the keyboard and on this Mac.",
  "Últimos ajustes del sistema enviados (el teclado no deja leerlos):": "Last system settings sent (the keyboard can't be read):",
  "↩ Enter": "↩ Return",
  "⇥ Tab": "⇥ Tab",
@@ -497,5 +495,12 @@
  "Mandado por el receptor 2.4G. Mira el teclado: si las luces no son las tuyas, pulsa una tecla y vuelve a probar.": "Sent through the 2.4 GHz receiver. Check the keyboard: if the lights aren't yours, press a key and try again.",
  "Mandado por el receptor 2.4G. Mira el teclado: si las luces son ahora una ola de arcoíris, ha llegado; si no, pulsa una tecla y vuelve a probar.": "Sent through the 2.4 GHz receiver. Check the keyboard: if the lights are now a rainbow wave, it worked; if not, press a key and try again.",
  "la tecla {tecla} normal": "a plain {tecla} key",
- "El receptor no da la batería (contesta 0, «no lo sé»). Algunos no la dan nunca: mírala en la pantalla del teclado.": "The receiver doesn't report the battery (it answers 0, \"unknown\"). Some never do: check the keyboard's screen."
+ "El receptor no da la batería (contesta 0, «no lo sé»). Algunos no la dan nunca: mírala en la pantalla del teclado.": "The receiver doesn't report the battery (it answers 0, \"unknown\"). Some never do: check the keyboard's screen.",
+ "Esto deja el teclado de fábrica: teclas de las dos capas, macros, luces, colores tecla a tecla y ajustes (y pone el reloj en hora). En este Mac queda una copia de lo que tenías, para deshacerlo con: python3 ak820.py fabrica --deshacer. Para hacerlo: python3 ak820.py fabrica --si": "This resets the keyboard to factory: keys on both layers, macros, lights, per-key colors and settings (and sets the clock). This Mac keeps a copy of what you had, to undo it with: python3 ak820.py fabrica --deshacer. To do it: python3 ak820.py fabrica --si",
+ "No hay ninguna copia de antes de «de fábrica».": "There's no copy from before a factory reset.",
+ "Recuperado lo de antes y mandado al teclado ✓": "Previous setup restored and sent to the keyboard ✓",
+ "Recuperado lo que tenías antes de «de fábrica»; ahora se manda al teclado.": "Restored what you had before the factory reset; sending it to the keyboard now.",
+ "Recuperar lo de antes de «de fábrica» ({fecha})": "Restore what I had before the factory reset ({fecha})",
+ "recuperar lo que había antes del último «de fábrica» y mandarlo al teclado": "restore what you had before the last factory reset and send it to the keyboard",
+ "¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes. En este Mac queda una copia para poder deshacerlo.": "Reset the keyboard to factory? Remapped keys, macros, per-key colors and settings are erased. This Mac keeps a copy so you can undo it."
 }

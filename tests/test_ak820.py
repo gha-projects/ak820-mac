@@ -395,6 +395,28 @@ class FabricaYReenviar(ConTecladoFalso):
         self.assertEqual(ak820.cargar_luces()["efecto"], "rodar")
         self.assertEqual(ak820.cargar_ajustes(), ak820.AJUSTES_DEFECTO)
 
+    def test_fabrica_y_deshacer(self):
+        mias = {"normal": {"alt_der": {"destino": "cmd"}}, "fn": {}}
+        ak820.guardar_teclas(mias)
+        self.orden("luces", "explosion")
+        self.assertIsNone(ak820.fecha_copia_fabrica())
+        self.orden("fabrica", "--si")
+        self.assertIsNotNone(ak820.fecha_copia_fabrica())
+        self.orden("fabrica", "--si")                          # dos veces: la copia sigue siendo la buena
+        self.teclado.paquetes.clear()
+        codigo, salida = self.orden("fabrica", "--deshacer")
+        self.assertEqual(codigo, 0, salida)
+        self.assertEqual(ak820.cargar_teclas(), mias)
+        self.assertEqual(ak820.cargar_luces()["efecto"], "explosion")
+        self.assertFalse(os.path.exists(ak820.COLORES_GUARDADOS))   # antes no había colores guardados
+        self.assertIn(0x11, self.teclado.ordenes())                 # y se ha mandado al teclado
+        self.assertIsNone(ak820.fecha_copia_fabrica())
+
+    def test_deshacer_sin_copia(self):
+        codigo, salida = self.orden("fabrica", "--deshacer")
+        self.assertEqual(codigo, 1)
+        self.assertIn("No hay ninguna copia", salida)
+
     def test_reenviar(self):
         ak820.guardar_teclas({"normal": {"repag": {"destino": "b"}}, "fn": {}})
         self.orden("luces", "respirar", "--color", "FF0000")

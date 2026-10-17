@@ -441,7 +441,7 @@ class Manejador(BaseHTTPRequestHandler):
                 "distribucion": distribucion, "config": ak820.cargar_teclas(), "catalogo": catalogo(),
                 "luces": ak820.cargar_luces(), "colores": ak820.cargar_colores(), "pantalla": pantalla_para_pagina(),
                 "ajustes": ajustes_para_pagina(), "conexion": conexion(), "musica": editor.musica_modo,
-                "idioma": idioma.IDIOMA})
+                "copia_fabrica": ak820.fecha_copia_fabrica(), "idioma": idioma.IDIOMA})
         if ruta == "/api/pantalla-vista":
             vista = ak820.info_pantalla()["vista"]
             if not vista:
@@ -514,11 +514,13 @@ class Manejador(BaseHTTPRequestHandler):
             else:
                 bien, mensaje = editor.empezar_musica(datos.get("modo"))
             return self.resultado(bien, mensaje, musica=editor.musica_modo)
-        if ruta in ("/api/fabrica", "/api/reenviar"):
-            bien, mensaje = editor.orden(["fabrica", "--si"] if ruta == "/api/fabrica" else ["reenviar"])
+        if ruta in ("/api/fabrica", "/api/reenviar", "/api/deshacer-fabrica"):
+            bien, mensaje = editor.orden({"/api/fabrica": ["fabrica", "--si"], "/api/reenviar": ["reenviar"],
+                                          "/api/deshacer-fabrica": ["fabrica", "--deshacer"]}[ruta])
             return self.resultado(bien, mensaje, config=ak820.cargar_teclas(), luces=ak820.cargar_luces(),
                                   colores=ak820.cargar_colores(), ajustes=ajustes_para_pagina(),
-                                  pantalla=pantalla_para_pagina(), conexion=conexion())
+                                  pantalla=pantalla_para_pagina(), conexion=conexion(),
+                                  copia_fabrica=ak820.fecha_copia_fabrica())
         if ruta == "/api/apagar":
             bien, mensaje = editor.orden(["luces", "apagado"])
             return self.resultado(bien, mensaje)

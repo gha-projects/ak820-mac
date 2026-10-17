@@ -3,11 +3,11 @@
 set -e
 cd "$(dirname "$0")"
 if [ ! -x .venv/bin/python ]; then
-  echo "Falta el entorno de Python del proyecto. Sigue el paso 3 de 'Cómo ejecutarlo' del README."
+  echo "Falta el entorno de Python del proyecto: /usr/bin/python3 -m venv .venv (ver «Instalación» en el README)."
   exit 1
 fi
 echo "Instalando lo necesario..."
-.venv/bin/pip install -q -r requirements-app.txt "py2app==0.28.8"
+.venv/bin/pip install -q --disable-pip-version-check -r requirements-app.txt "py2app==0.28.8"
 echo "Compilando el programa que escucha el sonido (modo música)..."
 rm -f musica/espectro
 if ! .venv/bin/python -c "import ak820, sys; sys.exit(0 if ak820.ruta_espectro() else 1)"; then

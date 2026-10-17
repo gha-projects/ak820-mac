@@ -275,6 +275,7 @@
       <div class="botones">
         <button type="button" class="boton" id="reenviar-todo" data-t>Volver a mandar mi configuración</button>
         <button type="button" class="boton peligro" id="todo-fabrica" data-t>Dejar el teclado de fábrica</button>
+        <button type="button" class="boton" id="deshacer-fabrica" hidden></button>
       </div>
       <p class="estado-linea" id="estado-reinicio"></p>
     </section>
@@ -1381,12 +1382,22 @@ function dibujarAyuda() {
 }
 
 // --- Volver a mandar lo guardado / dejar de fábrica ------------------------------------------------
+// Antes de «de fábrica» el Mac guarda una copia de lo que había: este botón la recupera.
+let copiaFabrica = null;
+function ponerCopiaFabrica(fecha) {
+  copiaFabrica = fecha;
+  const b = document.getElementById("deshacer-fabrica");
+  b.hidden = !fecha;
+  if (fecha) b.textContent = tr("Recuperar lo de antes de «de fábrica» ({fecha})", { fecha });
+}
+const BOTONES_REINICIO = ["reenviar-todo", "todo-fabrica", "deshacer-fabrica"];
 async function reinicio(ruta, textoHecho) {
   const estado = document.getElementById("estado-reinicio");
   estado.textContent = tr("Enviando…");
-  for (const id of ["reenviar-todo", "todo-fabrica"]) document.getElementById(id).disabled = true;
+  for (const id of BOTONES_REINICIO) document.getElementById(id).disabled = true;
   try {
     const r = await api(ruta, {});
+    if ("copia_fabrica" in r) ponerCopiaFabrica(r.copia_fabrica);
     if (r.ok) {
       guardado = r.config;
       actual = copia(r.config);
@@ -1402,14 +1413,16 @@ async function reinicio(ruta, textoHecho) {
       avisar(r.mensaje, "error");
     }
   } catch (e) { estado.textContent = ""; avisar(e.message, "error"); }
-  for (const id of ["reenviar-todo", "todo-fabrica"]) document.getElementById(id).disabled = false;
+  for (const id of BOTONES_REINICIO) document.getElementById(id).disabled = false;
 }
 document.getElementById("reenviar-todo").addEventListener("click", () =>
   reinicio("/api/reenviar", tr("Configuración de este Mac mandada al teclado ✓")));
 document.getElementById("todo-fabrica").addEventListener("click", () => {
-  if (confirm(tr("¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes, en el teclado y en este Mac.")))
+  if (confirm(tr("¿Dejar el teclado de fábrica? Se borran las teclas cambiadas, las macros, los colores tecla a tecla y los ajustes. En este Mac queda una copia para poder deshacerlo.")))
     reinicio("/api/fabrica", tr("Teclado de fábrica ✓"));
 });
+document.getElementById("deshacer-fabrica").addEventListener("click", () =>
+  reinicio("/api/deshacer-fabrica", tr("Recuperado lo de antes y mandado al teclado ✓")));
 
 // --- Carga y vuelta a la ventana -----------------------------------------------------------------
 function aplicarEstado(r, primeraVez) {
@@ -1434,6 +1447,7 @@ function aplicarEstado(r, primeraVez) {
   if (!ajustes || igual(ajustes, ajustesGuardados)) { ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes); }
   ponerConexion(r.conexion);
   ponerEstadoMusica(r.musica, "");
+  ponerCopiaFabrica(r.copia_fabrica);
   dibujarTeclado();
   dibujarLuces();
   dibujarPantalla();

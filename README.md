@@ -64,10 +64,13 @@ you don't have them, `python3` in the Terminal will offer to install them.
 ```sh
 git clone https://github.com/gha-projects/ak820-mac.git
 cd ak820-mac
-python3 -m venv .venv
+/usr/bin/python3 -m venv .venv
 .venv/bin/pip install -r requirements-app.txt
 ./crear-app.sh
 ```
+
+`/usr/bin/python3` is the Python that comes with the Command Line Tools: use that one even
+if you have another (Homebrew's, for example), since the app is built and tested with it.
 
 `crear-app.sh` builds **AK820.app**, copies it to Applications and opens it. Open it
 like any other app from then on. To start it at login: System Settings → General →
@@ -106,7 +109,9 @@ The first time you use music mode, macOS asks for permission to **record system 
 The keyboard doesn't let you read its configuration back, so the program remembers
 what it last sent in `~/Library/Application Support/ak820-mac/` (keys, colors, lights,
 settings and a copy of the screen image). If the keyboard gets reset or you set it up
-on another computer, **Send my configuration again** (or `reenviar`) puts it back.
+on another computer, **Send my configuration again** (or `reenviar`) puts it back. Before
+a factory reset it keeps a copy of what you had, so you can undo it (in Settings, or
+`fabrica --deshacer`).
 
 ## How it works
 

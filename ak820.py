@@ -21,6 +21,7 @@ import colorsys
 import datetime
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -884,11 +885,70 @@ def cmd_musica(args):
 ARGS_LUCES_FABRICA = ["rodar", "--arcoiris", "--brillo", "5", "--velocidad", "3"]
 
 
+# Antes de dejarlo de fábrica se guarda una copia de lo que este Mac recuerda, para poder
+# deshacerlo (`fabrica --deshacer`). Si lo guardado ya es lo de fábrica (al pulsarlo dos veces),
+# se conserva la copia anterior.
+def archivos_copia():
+    return [TECLAS_GUARDADAS, LUCES_GUARDADAS, COLORES_GUARDADOS, AJUSTES_GUARDADOS]
+
+
+def carpeta_copia():
+    return os.path.join(os.path.dirname(TECLAS_GUARDADAS), "antes-de-fabrica")
+
+
+def fecha_copia_fabrica():
+    """Cuándo se hizo la copia de antes de «de fábrica» ("17/10 15:25"), o None si no hay."""
+    carpeta = carpeta_copia()
+    if not os.path.isdir(carpeta):
+        return None
+    return datetime.datetime.fromtimestamp(os.path.getmtime(carpeta)).strftime("%d/%m %H:%M")
+
+
+def ya_de_fabrica():
+    luces = cargar_luces()
+    return (cargar_teclas() == {c: {} for c in CAPAS} and cargar_ajustes() == AJUSTES_DEFECTO
+            and (luces is None or luces.get("efecto") == ARGS_LUCES_FABRICA[0]))
+
+
+def guardar_copia():
+    carpeta = carpeta_copia()
+    if os.path.isdir(carpeta) and ya_de_fabrica():
+        return
+    shutil.rmtree(carpeta, ignore_errors=True)
+    os.makedirs(carpeta)
+    for ruta in archivos_copia():
+        if os.path.exists(ruta):
+            shutil.copy2(ruta, carpeta)
+
+
+def deshacer_fabrica():
+    carpeta = carpeta_copia()
+    if not os.path.isdir(carpeta):
+        print(tr("No hay ninguna copia de antes de «de fábrica»."))
+        return 1
+    for ruta in archivos_copia():
+        copia = os.path.join(carpeta, os.path.basename(ruta))
+        if os.path.exists(copia):
+            shutil.copy2(copia, ruta)
+        elif os.path.exists(ruta):               # antes no había nada guardado (= lo de fábrica)
+            os.remove(ruta)
+    print(tr("Recuperado lo que tenías antes de «de fábrica»; ahora se manda al teclado."))
+    codigo = cmd_reenviar(None)
+    if codigo == 0:                              # si no llega, la copia se queda para volver a probar
+        shutil.rmtree(carpeta, ignore_errors=True)
+    return codigo
+
+
 def cmd_fabrica(args):
+    if args.deshacer:
+        return deshacer_fabrica()
     if not args.si:
         print(tr("Esto deja el teclado de fábrica: teclas de las dos capas, macros, luces, colores "
-                 "tecla a tecla y ajustes (y pone el reloj en hora). Para hacerlo: python3 ak820.py fabrica --si"))
+                 "tecla a tecla y ajustes (y pone el reloj en hora). En este Mac queda una copia de lo "
+                 "que tenías, para deshacerlo con: python3 ak820.py fabrica --deshacer. "
+                 "Para hacerlo: python3 ak820.py fabrica --si"))
         return 0
+    guardar_copia()
     por_cable = buscar_interfaz() is not None
     bien = enviar_teclas({c: {} for c in CAPAS}, vaciar_macros=True)
     if por_cable:                                  # los colores solo van por cable
@@ -1456,6 +1516,8 @@ def main(argv=None):
     si.add_argument("--fabrica", action="store_true", help=tr("volver a los ajustes de fábrica"))
     f = sub.add_parser("fabrica", help=tr("dejar el teclado de fábrica (teclas, macros, luces, colores y ajustes)"))
     f.add_argument("--si", action="store_true", help=tr("confirmar (sin esto solo explica lo que hará)"))
+    f.add_argument("--deshacer", action="store_true",
+                   help=tr("recuperar lo que había antes del último «de fábrica» y mandarlo al teclado"))
     sub.add_parser("reenviar", help=tr("volver a mandar al teclado la configuración guardada en este Mac"))
     sub.add_parser("bateria", help=tr("ver la batería (solo con el receptor 2.4G)"))
     m = sub.add_parser("musica", help=tr("las luces siguen el sonido del Mac (modo música)"))

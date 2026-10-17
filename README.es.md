@@ -65,10 +65,14 @@ instalarlas.
 ```sh
 git clone https://github.com/gha-projects/ak820-mac.git
 cd ak820-mac
-python3 -m venv .venv
+/usr/bin/python3 -m venv .venv
 .venv/bin/pip install -r requirements-app.txt
 ./crear-app.sh
 ```
+
+`/usr/bin/python3` es el Python que traen las herramientas de línea de comandos: usa ese
+aunque tengas otro (el de Homebrew, por ejemplo), que es con el que se crea y se prueba la
+app.
 
 `crear-app.sh` crea **AK820.app**, la copia a Aplicaciones y la abre. A partir de ahí se
 abre como cualquier app. Para que arranque al encender el Mac: Ajustes del Sistema →
@@ -108,6 +112,8 @@ El teclado no deja leer su configuración, así que el programa recuerda lo últ
 ha mandado en `~/Library/Application Support/ak820-mac/` (teclas, colores, luces, ajustes
 y una copia de la imagen de la pantalla). Si el teclado se resetea o lo configuras en
 otro ordenador, **Volver a mandar mi configuración** (o `reenviar`) lo deja como estaba.
+Antes de dejarlo de fábrica guarda una copia de lo que tenías, para poder deshacerlo (en
+Ajustes, o con `fabrica --deshacer`).
 
 ### Extra: la tecla 🌐 de Mac
 
