@@ -74,7 +74,6 @@ Cada tecla ocupa los bytes `key_index × 4` a `key_index × 4 + 3`:
 | `03 <lo> <hi> 00` | Multimedia (USB "consumer"): play `CD`, siguiente `B5`, anterior `B6`, stop `B7`, silencio `E2`, vol+ `E9`, vol− `EA` |
 | `01 01 <botones> 00` | Clic de ratón: izq. `01`, der. `02`, central `04`, atrás `08`, adelante `10` |
 | `01 03 <rueda> 00` | Rueda: `01` arriba, `FF` abajo |
-
 | `06 <macro> <modo> <veces>` | Lanza la macro n.º `<macro>`. Modos del programa oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar, 3 mientras se mantiene, 4 al hacer clic |
 
 Otros tipos del programa oficial que no están en `ak820.py`: `07 a b c` ("Multi-Key",
