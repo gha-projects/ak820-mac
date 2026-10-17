@@ -92,6 +92,18 @@ TAM_TABLA_TECLAS = 576
 # Una tecla lanza la macro n.º i con la entrada 06 i <modo> <veces> en la tabla de
 # teclas (modos del oficial: 0 una vez, 1 N veces, 2 hasta volver a pulsar,
 # 3 mientras se mantiene, 4 al hacer clic).
+# --- Ajustes del sistema (reposo) -------------------------------------------
+# Función 0x414060 del programa oficial: EMPEZAR -> 04 17 01 ... [8]=01 -> datos
+# -> CONFIRMAR (sin GUARDAR). El paquete de datos lleva varios ajustes a la vez:
+#   [1]=01  [2..4]=desactivar tecla Win / Alt+F4 / Alt+Tab (0 = no)
+#   [5]=fn_switch  [6]=sleep_time (reposo)  [8]=key_respondtime  [62..63]=AA 55
+# Valores por defecto del programa oficial: fn_switch 0, sleep_time 2, key_respondtime 2.
+# (gohv ponía el reposo en el byte 8, que en realidad es el tiempo de respuesta.)
+CMD_SISTEMA = 0x17
+REPOSO = {"nunca": 0, "1": 1, "5": 2, "30": 3}     # minutos -> valor
+FN_SWITCH_DEFECTO = 0
+RESPUESTA_DEFECTO = 2
+
 CMD_MACROS = 0x19
 CMD_MACROS_DATOS = 0x15
 TAM_MACROS = 0xE00
@@ -431,6 +443,45 @@ def cmd_luces(args):
     return 0
 
 
+def paquete_sistema(reposo, fn_switch=FN_SWITCH_DEFECTO, respuesta=RESPUESTA_DEFECTO):
+    """Paquete de ajustes del sistema (formato del programa oficial)."""
+    p = bytearray(PACKET_SIZE)
+    p[1] = 0x01
+    p[5] = fn_switch
+    p[6] = reposo
+    p[8] = respuesta
+    p[62] = 0xAA
+    p[63] = 0x55
+    return bytes(p)
+
+
+def cmd_reposo(args):
+    info = buscar_interfaz()
+    if info is None:
+        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+        return 1
+    datos = paquete_sistema(REPOSO[args.minutos])
+    dispositivo = hid.device()
+    dispositivo.open_path(info["path"])
+    try:
+        enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
+        enviar(dispositivo, paquete_control(CMD_SISTEMA, byte2=0x01, byte8=0x01))
+        time.sleep(PAUSA)
+        dispositivo.send_feature_report(bytes([0x00]) + datos)   # sin leer respuesta, como el oficial
+        time.sleep(PAUSA)
+        respuesta = enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+    finally:
+        dispositivo.close()
+    if respuesta and int.from_bytes(respuesta[5:7], "little") != sum(datos) & 0xFFFF:
+        print("El teclado no ha recibido bien el ajuste. Prueba otra vez.")
+        return 1
+    if args.minutos == "nunca":
+        print("Reposo desactivado: las luces no se apagarán solas.")
+    else:
+        print(f"Reposo: las luces se apagarán tras {args.minutos} min sin tocar el teclado.")
+    return 0
+
+
 def cmd_teclas(args):
     if args.cambios == ["lista"]:
         print("Teclas que se pueden cambiar (origen, como están rotuladas):")
@@ -592,6 +643,8 @@ def main():
     l.add_argument("--velocidad", type=int, default=3, help="0 a 5 (por defecto 3)")
     l.add_argument("--direccion", choices=DIRECCIONES, default="izquierda")
     l.add_argument("--arcoiris", action="store_true", help="usar todos los colores en vez de uno")
+    s = sub.add_parser("reposo", help="apagar las luces tras un tiempo sin usar el teclado")
+    s.add_argument("minutos", choices=REPOSO, help="1, 5, 30 o nunca")
     i = sub.add_parser("imagen", help="poner una imagen en la pantalla del teclado")
     i.add_argument("archivo", help="foto o dibujo (JPG, PNG...), o 'prueba' para los 4 colores")
     t = sub.add_parser("teclas", help="cambiar lo que escribe cada tecla (se guarda en el teclado)")
@@ -602,7 +655,7 @@ def main():
                    help="para las macros (texto:...): cuántas veces se repiten al pulsar (1 a 255)")
     args = parser.parse_args()
     ordenes = {"buscar": cmd_buscar, "reloj": cmd_reloj, "luces": cmd_luces,
-               "imagen": cmd_imagen, "teclas": cmd_teclas}
+               "imagen": cmd_imagen, "teclas": cmd_teclas, "reposo": cmd_reposo}
     return ordenes[args.comando](args)
 
 

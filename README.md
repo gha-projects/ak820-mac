@@ -8,6 +8,7 @@ solo existe para Windows.
 - `buscar`: comprueba que el Mac ve el teclado. No cambia nada.
 - `reloj`: pone en hora la pantalla del teclado.
 - `luces`: cambia las luces RGB (efecto, color, brillo, velocidad y dirección). Se guarda en el teclado.
+- `reposo`: tiempo sin usar el teclado hasta que se apagan las luces (1, 5, 30 min o nunca). Solo actúa con batería (Bluetooth o 2.4G sin cable).
 - `teclas`: cambia lo que escribe cada tecla **dentro del propio teclado** (vale en cualquier ordenador). Ver [docs/teclas.md](docs/teclas.md).
 - `imagen`: pone una foto o dibujo en la pantalla del teclado. Ver [docs/pantalla.md](docs/pantalla.md).
 
@@ -65,6 +66,17 @@ Solo afecta al AK820 (el teclado del portátil queda igual) y funciona por cable
 ./instalar-teclas-mac.sh quitar   # volver a como estaba
 ```
 
+## Reposo
+
+```
+python3 ak820.py reposo 5        # 1, 5, 30 o nunca
+```
+
+Se configura por cable, pero solo se nota con batería: enchufado por USB las luces no
+se apagan. El paquete lleva también otros ajustes del sistema (tecla Fn, tiempo de
+respuesta de las teclas, desactivar Win/Alt+F4/Alt+Tab); se envían con los valores por
+defecto del programa oficial.
+
 ## Cambiar teclas dentro del teclado
 
 ```
@@ -93,8 +105,9 @@ Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla
 
 ## Próximos pasos
 
-1. Temporizador de reposo (probado por cable sin efecto; ahora sabemos que el programa
-   oficial lo manda junto a otros ajustes del sistema, ver la función `0x414060`).
+Todo lo previsto funciona. Ideas que quedan: el tipo "Multi-Key" (hasta 3 teclas a la
+vez), los otros modos de repetición de las macros y exponer el resto de ajustes del
+sistema (tecla Fn, tiempo de respuesta).
 
 ## Créditos
 
