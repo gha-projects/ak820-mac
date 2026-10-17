@@ -149,9 +149,22 @@ python3 ak820.py reloj                       # volver al reloj (o salir de "load
 
 Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla.md](docs/pantalla.md).
 
+## Pruebas automáticas
+
+```
+.venv/bin/python -m unittest discover -s tests
+```
+
+Comprueban los formatos y las secuencias de envío con un **teclado falso** (responde con
+la suma de lo recibido, como el de verdad), así que no hace falta tener el AK820
+conectado ni se toca nada. Las pruebas hechas con el teclado de verdad están en
+[docs/pruebas.md](docs/pruebas.md).
+
 ## Próximos pasos
 
-Todo lo previsto funciona.
+Todo lo previsto funciona. Ideas en marcha: poner la hora sola al conectar el teclado,
+una app de verdad (`AK820.app`), luces y pantalla en el editor, iluminación tecla a
+tecla y configurar por el receptor 2.4G.
 
 ## Créditos
 
