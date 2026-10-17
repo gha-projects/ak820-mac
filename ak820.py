@@ -33,6 +33,19 @@ PRODUCT_IDS_CABLE = (0x8009, 0x800A)  # AK820 Pro por cable (según el modelo/fi
 CONFIG_USAGE_PAGE = 0xFF13  # la interfaz por la que se configura
 DATOS_USAGE_PAGE = 0xFF68   # la interfaz por la que van las imágenes
 
+# Receptor 2.4G (sacado del programa oficial: config.xml y las funciones que usan 0x44f5f0).
+# No tiene "feature reports": se le escriben mensajes de 32 bytes (con el report id 0 delante)
+#   [orden, longitud, n.º de trozo, hasta 28 bytes de datos..., suma de los 31 primeros]
+# y contesta repitiendo los 3 primeros bytes. No hay 04 18 / 04 02 / 04 F0: cada orden va
+# sola. Los datos de luces, ajustes y reloj son los 16 primeros bytes del paquete por cable
+# (con AA 55 en los bytes 14-15); teclas y macros, las mismas tablas en trozos de 28.
+# Por el receptor no se pueden cambiar los colores tecla a tecla ni la pantalla (el programa
+# oficial tampoco lo hace).
+RECEPTOR_PID = 0xFDFD
+RECEPTOR_USAGE_PAGE = 0xFF60
+TROZO_24G = 28
+ORDEN_24G = {"luces": 0x05, "sistema": 0x07, "macros": 0x09, "reloj": 0x0C, "normal": 0x10, "fn": 0x12}
+
 PACKET_SIZE = 64
 PAUSA = 0.035               # 35 ms entre paquetes, como el programa oficial
 
@@ -343,8 +356,15 @@ def eventos_doble_clic():
     return clic * 2
 
 
-def bloque_macros(macros):
-    """Bloque de macros listo para enviar: lista de macros, cada una una lista de eventos."""
+def longitud_macros(macros):
+    """Bytes que ocupan el índice y los cuerpos de las macros."""
+    return INICIO_MACROS + sum(8 + 4 * len(eventos) for eventos in macros)
+
+
+def bloque_macros(macros, paquete=PACKET_SIZE):
+    """Bloque de macros listo para enviar: lista de macros, cada una una lista de eventos.
+
+    Se rellena hasta un múltiplo de 'paquete' (64 por cable, 28 por el receptor 2.4G)."""
     bloque = bytearray(TAM_MACROS)
     posicion = INICIO_MACROS
     for i, eventos in enumerate(macros):
@@ -353,8 +373,8 @@ def bloque_macros(macros):
         cuerpo = b"".join(eventos)
         bloque[posicion + 8:posicion + 8 + len(cuerpo)] = cuerpo
         posicion += 8 + len(cuerpo)
-    paquetes = posicion // PACKET_SIZE + (1 if posicion % PACKET_SIZE == 0 else 2)
-    tam = paquetes * PACKET_SIZE
+    paquetes = posicion // paquete + (1 if posicion % paquete == 0 else 2)
+    tam = paquetes * paquete
     if tam > TAM_MACROS:
         return None                                  # no caben
     bloque[tam - 2:tam] = b"\xaa\x55"
@@ -422,6 +442,69 @@ def buscar_interfaz(usage_page=CONFIG_USAGE_PAGE):
     return None
 
 
+def buscar_receptor():
+    """La interfaz de configuración del receptor 2.4G, o None."""
+    for info in hid.enumerate(VENDOR_ID):
+        if info["product_id"] == RECEPTOR_PID and info["usage_page"] == RECEPTOR_USAGE_PAGE:
+            return info
+    return None
+
+
+def abrir_teclado():
+    """(modo, dispositivo abierto): "cable" si está por cable, si no "2.4g" con el receptor.
+
+    (None, None) si no hay ninguno. Quien lo abre lo cierra.
+    """
+    for modo, info in (("cable", buscar_interfaz()), ("2.4g", buscar_receptor())):
+        if info is not None:
+            dispositivo = hid.device()
+            dispositivo.open_path(info["path"])
+            return modo, dispositivo
+    print("No encuentro el teclado (ni por cable ni con el receptor 2.4G). Prueba primero: python3 ak820.py buscar")
+    return None, None
+
+
+def tramas_24g(orden, datos, ultima_longitud=None):
+    """Los mensajes de 32 bytes para mandar 'datos' por el receptor 2.4G."""
+    trozos = [datos[i:i + TROZO_24G] for i in range(0, len(datos), TROZO_24G)]
+    for indice, trozo in enumerate(trozos):
+        trama = bytearray(32)
+        trama[0] = orden
+        trama[1] = len(trozo) if ultima_longitud is None or indice < len(trozos) - 1 else ultima_longitud
+        trama[2] = indice
+        trama[3:3 + len(trozo)] = trozo
+        trama[31] = sum(trama) & 0xFF
+        yield bytes(trama)
+
+
+def esperar_eco(dispositivo, trama):
+    """El receptor confirma cada trama repitiendo sus 3 primeros bytes (el oficial espera 20 veces)."""
+    time.sleep(0.005)
+    for _ in range(20):
+        respuesta = dispositivo.read(64, 10)
+        if respuesta and bytes(respuesta[:3]) == trama[:3]:
+            return True
+    return False
+
+
+def enviar_24g(dispositivo, tramas):
+    """Manda las tramas al receptor; True si las confirma todas."""
+    for trama in tramas:
+        for _intento in range(3):
+            dispositivo.write(b"\x00" + trama)
+            if esperar_eco(dispositivo, trama):
+                break
+        else:
+            return False
+        time.sleep(0.002)
+    return True
+
+
+def datos_24g(paquete):
+    """Los 16 bytes que van por el receptor: el principio del paquete por cable y AA 55."""
+    return paquete[:14] + b"\xaa\x55"
+
+
 def enviar(dispositivo, paquete):
     """Manda un paquete y lee la respuesta (el teclado lo necesita para actuar)."""
     time.sleep(PAUSA)       # el programa oficial también espera antes de cada orden
@@ -446,31 +529,38 @@ def cmd_buscar(_args):
         print(f"  PID 0x{i['product_id']:04X}  interfaz {i['interface_number']}  "
               f"usage page 0x{i['usage_page']:04X}  {i['product_string']}{marca}")
     if buscar_interfaz() is None:
-        print("\nNo aparece la interfaz de configuración (PID 0x8009/0x800A, 0xFF13).")
-        print("Si estás por Bluetooth o con el receptor 2.4G, conéctalo por cable.")
+        if buscar_receptor() is not None:
+            print("\nEstá el receptor 2.4G: se pueden cambiar las luces, las teclas, las macros, los")
+            print("ajustes y la hora. Los colores tecla a tecla y la pantalla, solo por cable.")
+            return 0
+        print("\nNo aparece la interfaz de configuración (PID 0x8009/0x800A, 0xFF13) ni el receptor 2.4G.")
+        print("Si estás por Bluetooth, conéctalo por cable o con el receptor 2.4G.")
         return 1
     print("\nTodo bien: el teclado está listo para configurarse.")
     return 0
 
 
 def cmd_reloj(args):
-    info = buscar_interfaz()
-    if info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
-        return 1
     if args.hora:
         t = datetime.datetime.strptime(args.hora, "%Y-%m-%d %H:%M")
     else:
         t = datetime.datetime.now()
-
-    dispositivo = hid.device()
-    dispositivo.open_path(info["path"])
+    modo, dispositivo = abrir_teclado()
+    if modo is None:
+        return 1
     try:
-        enviar(dispositivo, paquete_control(CMD_EMPEZAR))
-        enviar(dispositivo, paquete_control(CMD_RELOJ))
-        enviar(dispositivo, paquete_hora(t))
-        enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
-        time.sleep(0.1)     # margen para que el teclado aplique la hora
+        if modo == "2.4g":
+            datos = bytearray(paquete_hora(t)[:16])
+            datos[10] = t.isoweekday() % 7          # día de la semana (domingo = 0), como el oficial
+            if not enviar_24g(dispositivo, tramas_24g(ORDEN_24G["reloj"], datos_24g(bytes(datos)))):
+                print("El receptor 2.4G no ha confirmado la hora. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                return 1
+        else:
+            enviar(dispositivo, paquete_control(CMD_EMPEZAR))
+            enviar(dispositivo, paquete_control(CMD_RELOJ))
+            enviar(dispositivo, paquete_hora(t))
+            enviar(dispositivo, paquete_control(CMD_CONFIRMAR, byte8=0x00))
+            time.sleep(0.1)     # margen para que el teclado aplique la hora
     finally:
         dispositivo.close()
     guardar_modo_pantalla("reloj")
@@ -516,13 +606,13 @@ def enviar_colores(config):
     Si va bien, recuerda los colores y que las luces están en "personal".
     """
     tabla = tabla_colores(config)
-    info = buscar_interfaz()
-    if info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+    modo, dispositivo = abrir_teclado()
+    if modo is None:
         return False
-    dispositivo = hid.device()
-    dispositivo.open_path(info["path"])
     try:
+        if modo == "2.4g":
+            print("Los colores tecla a tecla solo se pueden cambiar por cable (por el receptor 2.4G, no).")
+            return False
         enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
         enviar(dispositivo, paquete_control(CMD_LUCES))
         enviar(dispositivo, paquete_luces(EFECTOS["personal"], 0, 0, 0, False, config["brillo"], 0, 0))
@@ -587,10 +677,6 @@ def cmd_colores(args):
 
 
 def cmd_luces(args):
-    info = buscar_interfaz()
-    if info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
-        return 1
     color = args.color.lstrip("#")
     r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
     brillo, velocidad = args.brillo, args.velocidad
@@ -601,14 +687,20 @@ def cmd_luces(args):
 
     datos = paquete_luces(EFECTOS[args.efecto], r, g, b, args.arcoiris,
                           brillo, velocidad, DIRECCIONES[args.direccion])
-    dispositivo = hid.device()
-    dispositivo.open_path(info["path"])
+    modo, dispositivo = abrir_teclado()
+    if modo is None:
+        return 1
     try:
-        enviar(dispositivo, paquete_control(CMD_EMPEZAR))
-        enviar(dispositivo, paquete_control(CMD_LUCES))
-        enviar(dispositivo, datos)
-        enviar(dispositivo, paquete_control(CMD_GUARDAR))
-        time.sleep(0.1)
+        if modo == "2.4g":
+            if not enviar_24g(dispositivo, tramas_24g(ORDEN_24G["luces"], datos_24g(datos))):
+                print("El receptor 2.4G no ha confirmado las luces. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                return 1
+        else:
+            enviar(dispositivo, paquete_control(CMD_EMPEZAR))
+            enviar(dispositivo, paquete_control(CMD_LUCES))
+            enviar(dispositivo, datos)
+            enviar(dispositivo, paquete_control(CMD_GUARDAR))
+            time.sleep(0.1)
     finally:
         dispositivo.close()
     os.makedirs(os.path.dirname(LUCES_GUARDADAS), exist_ok=True)
@@ -647,14 +739,17 @@ def cargar_ajustes():
 
 def enviar_ajustes(ajustes):
     """Manda los ajustes del sistema y, si el teclado los recibe bien, los recuerda."""
-    info = buscar_interfaz()
-    if info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
-        return 1
     datos = paquete_sistema(ajustes)
-    dispositivo = hid.device()
-    dispositivo.open_path(info["path"])
+    modo, dispositivo = abrir_teclado()
+    if modo is None:
+        return 1
+    respuesta = None
     try:
+        if modo == "2.4g":
+            if not enviar_24g(dispositivo, tramas_24g(ORDEN_24G["sistema"], datos_24g(datos))):
+                print("El receptor 2.4G no ha confirmado los ajustes. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                return 1
+            return guardar_ajustes(ajustes)
         enviar(dispositivo, paquete_control(CMD_EMPEZAR, byte8=0x00))
         enviar(dispositivo, paquete_control(CMD_SISTEMA, byte2=0x01, byte8=0x01))
         time.sleep(PAUSA)
@@ -666,6 +761,10 @@ def enviar_ajustes(ajustes):
     if respuesta and int.from_bytes(respuesta[5:7], "little") != sum(datos) & 0xFFFF:
         print("El teclado no ha recibido bien el ajuste. Prueba otra vez.")
         return 1
+    return guardar_ajustes(ajustes)
+
+
+def guardar_ajustes(ajustes):
     os.makedirs(os.path.dirname(AJUSTES_GUARDADOS), exist_ok=True)
     with open(AJUSTES_GUARDADOS, "w") as f:
         json.dump(ajustes, f, indent=2)
@@ -797,7 +896,7 @@ def entrada_asignacion(asignacion, macros):
 
 
 def preparar_teclas(config):
-    """Tablas de las dos capas y bloque de macros (o None) para una configuración.
+    """Tablas de las dos capas y lista de macros (los eventos de cada una) de una configuración.
 
     Lanza ValueError con un mensaje para el usuario si algo no vale.
     """
@@ -816,10 +915,9 @@ def preparar_teclas(config):
             except ValueError as e:
                 raise ValueError(f"{origen} ({NOMBRE_CAPA[capa]}): {e}") from None
         tablas[capa] = tabla_teclas(cambios)
-    bloque = bloque_macros(macros) if macros else None
-    if macros and bloque is None:
+    if macros and (bloque_macros(macros) is None or bloque_macros(macros, TROZO_24G) is None):
         raise ValueError("Las macros no caben en la memoria del teclado (3,5 KB). Acórtalas.")
-    return tablas, bloque
+    return tablas, macros
 
 
 def subir_macros(dispositivo, bloque):
@@ -864,14 +962,25 @@ def enviar_teclas(config):
     Devuelve True si ha ido bien; si no, imprime el motivo. Lanza ValueError si la
     configuración no vale (antes de tocar el teclado).
     """
-    tablas, bloque = preparar_teclas(config)
-    info = buscar_interfaz()
-    if info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+    tablas, macros = preparar_teclas(config)
+    modo, dispositivo = abrir_teclado()
+    if modo is None:
         return False
-    dispositivo = hid.device()
-    dispositivo.open_path(info["path"])
     try:
+        if modo == "2.4g":
+            tramas = []
+            if macros:
+                # La última trama de macros lleva como longitud lo que sobra de 28 (como el oficial).
+                tramas += tramas_24g(ORDEN_24G["macros"], bloque_macros(macros, TROZO_24G),
+                                     longitud_macros(macros) % TROZO_24G)
+            for capa in CAPAS:
+                tramas += tramas_24g(ORDEN_24G[capa], tablas[capa])
+            if not enviar_24g(dispositivo, tramas):
+                print("El receptor 2.4G no ha confirmado las teclas. ¿Está el teclado encendido y en 2.4G? Si lleva un rato sin usarse, pulsa una tecla para despertarlo.")
+                return False
+            guardar_teclas(config)
+            return True
+        bloque = bloque_macros(macros) if macros else None
         if bloque and not subir_macros(dispositivo, bloque):
             print("No consigo guardar las macros en el teclado. Prueba otra vez.")
             return False
@@ -957,7 +1066,10 @@ def cmd_imagen(args):
     control_info = buscar_interfaz()
     datos_info = buscar_interfaz(DATOS_USAGE_PAGE)
     if control_info is None or datos_info is None:
-        print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
+        if buscar_receptor() is not None:
+            print("La pantalla solo se puede cambiar por cable (por el receptor 2.4G, no).")
+        else:
+            print("No encuentro el teclado por cable. Prueba primero: python3 ak820.py buscar")
         return 1
     from PIL import Image
     if args.archivo == "prueba":

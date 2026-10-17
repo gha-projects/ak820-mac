@@ -58,3 +58,12 @@ En modo Mac la tecla rotulada Alt hace de Cmd y la rotulada Win hace de Option.
 | Luces: Fijo, Respirar, Ola de colores, Apagadas, Brillo | ✅ |
 | Reposo → 5 minutos | ✅ |
 | Sistema → Tecla Fn (los dos modos) | ✅ |
+
+## Receptor 2.4G (17 de octubre de 2026, por la tarde)
+
+| Prueba | Resultado |
+|---|---|
+| `luces fijo --color FF0000` por el receptor | ✅ |
+| `teclas avpag=texto:hola repag=b` (macro + tabla, 50 tramas en 1,4 s) | ✅ |
+| `reloj --hora "2026-10-17 12:34"` | ✅ la pantalla pone 12:34 |
+| Con el teclado dormido | El receptor no contesta; al pulsar una tecla, vuelve a ir |

@@ -82,28 +82,62 @@ class Conexion:
         return [0x01, 0x5A, 0x02]      # el "recibido" de cada bloque
 
 
+class ReceptorFalso:
+    """Imita el receptor 2.4G: apunta las tramas y contesta repitiendo sus 3 primeros bytes."""
+
+    def __init__(self, sin_respuesta=False):
+        self.tramas = []
+        self.sin_respuesta = sin_respuesta
+
+    def open_path(self, _ruta):
+        pass
+
+    def close(self):
+        pass
+
+    def write(self, datos):
+        assert len(datos) == 33 and datos[0] == 0, "se esperan 33 bytes con el report id 0"
+        trama = bytes(datos[1:])
+        assert trama[31] == sum(trama[:31]) & 0xFF, "la suma del byte 31 no cuadra"
+        self.tramas.append(trama)
+        return len(datos)
+
+    def read(self, _n, _espera=0):
+        if self.sin_respuesta or not self.tramas:
+            return []
+        return list(self.tramas[-1][:3]) + [0] * 29
+
+    def ordenes(self):
+        return [t[0] for t in self.tramas]
+
+
 class HidFalso:
-    def __init__(self, teclado):
+    def __init__(self, teclado, receptor=None):
         self.teclado = teclado
+        self.receptor = receptor            # con receptor: está por 2.4G, no por cable
 
     def enumerate(self, _vid=0):
+        if self.receptor is not None:
+            return [{"product_id": 0xFDFD, "usage_page": 0xFF60, "path": b"rx", "interface_number": 3, "product_string": "2.4G Dongle"}]
         return [{"product_id": 0x800A, "usage_page": 0xFF13, "path": b"cfg", "interface_number": 3, "product_string": "AK820"},
                 {"product_id": 0x800A, "usage_page": 0xFF68, "path": b"dat", "interface_number": 2, "product_string": "AK820"}]
 
     def device(self):
-        return Conexion(self.teclado)
+        return self.receptor if self.receptor is not None else Conexion(self.teclado)
 
 
 class ConTecladoFalso(unittest.TestCase):
     """Cada prueba tiene su teclado falso, sin esperas y con los archivos en una carpeta temporal."""
 
     fallos = 0
+    receptor = None                         # una clase de receptor falso para probar el 2.4G
 
     def setUp(self):
         self.teclado = TecladoFalso(self.fallos)
+        self.rx = self.receptor() if self.receptor else None
         carpeta = tempfile.TemporaryDirectory()
         self.addCleanup(carpeta.cleanup)
-        for parche in (mock.patch.object(ak820, "hid", HidFalso(self.teclado)),
+        for parche in (mock.patch.object(ak820, "hid", HidFalso(self.teclado, self.rx)),
                        mock.patch.object(ak820.time, "sleep", lambda _s: None),
                        mock.patch.object(ak820, "TECLAS_GUARDADAS", os.path.join(carpeta.name, "teclas.json")),
                        mock.patch.object(ak820, "AJUSTES_GUARDADOS", os.path.join(carpeta.name, "sistema.json")),
@@ -190,11 +224,11 @@ class PrepararTeclas(unittest.TestCase):
     def test_macros_compartidas_entre_capas(self):
         config = {"normal": {"avpag": {"destino": "texto:hola", "modo": "mantener"}},
                   "fn": {"avpag": {"destino": "texto:adios"}, "repag": {"destino": "doble_clic"}}}
-        tablas, bloque = ak820.preparar_teclas(config)
+        tablas, macros = ak820.preparar_teclas(config)
         posicion = ak820.POSICION_TECLA["avpag"] * 4
         self.assertEqual(tablas["normal"][posicion:posicion + 4].hex(" "), "06 00 03 01")
         self.assertEqual(tablas["fn"][posicion:posicion + 4].hex(" "), "06 01 00 01")
-        self.assertEqual(int.from_bytes(bloque[8:10], "little") > 0, True)   # hay una 3.ª macro
+        self.assertEqual(len(macros), 3)                                     # hola, adios y el doble clic
 
     def test_errores(self):
         for config, texto in [({"fn": {"supr": {"destino": "b"}}}, "no se puede cambiar"),
@@ -288,6 +322,66 @@ class Colores(ConTecladoFalso):
         self.assertEqual(self.teclado.paquetes, [])
 
 
+class Receptor24G(ConTecladoFalso):
+    receptor = ReceptorFalso
+
+    def test_trama(self):
+        trama = next(ak820.tramas_24g(0x05, ak820.datos_24g(ak820.paquete_luces(0x07, 255, 0, 0, False, 5, 0, 0))))
+        # la que funcionó en el teclado de verdad (luces fijas en rojo)
+        self.assertEqual(trama.hex(" "), "05 10 00 07 ff 00 00 00 00 00 00 00 05 00 00 00 00 aa 55 "
+                                         "00 00 00 00 00 00 00 00 00 00 00 00 1f")
+
+    def test_luces_ajustes_y_reloj(self):
+        self.assertEqual(self.orden("luces", "fijo", "--color", "00FF00")[0], 0)
+        self.assertEqual(self.orden("sistema", "--fn-modo", "alternar")[0], 0)
+        self.assertEqual(self.orden("reloj", "--hora", "2026-10-17 09:30")[0], 0)   # sábado
+        self.assertEqual(self.rx.ordenes(), [0x05, 0x07, 0x0C])
+        luces, sistema, reloj = self.rx.tramas
+        self.assertEqual(luces[3:8].hex(" "), "07 00 ff 00 00")
+        self.assertEqual(sistema[3:12].hex(" "), "00 01 00 00 00 01 02 00 02")
+        self.assertEqual(reloj[3:17].hex(" "), "00 01 5a 1a 0a 11 09 1e 00 00 06 00 00 00")
+        self.assertEqual(reloj[17:19], b"\xaa\x55")
+        self.assertEqual(self.teclado.paquetes, [])                  # nada por el cable
+        self.assertEqual(ak820.cargar_ajustes()["fn"], 1)
+
+    def test_teclas_y_macros(self):
+        self.assertEqual(self.orden("teclas", "avpag=texto:hola", "repag=b")[0], 0)
+        ordenes = self.rx.ordenes()
+        macros = [t for t in self.rx.tramas if t[0] == 0x09]
+        normal = [t for t in self.rx.tramas if t[0] == 0x10]
+        self.assertEqual((len(normal), ordenes.count(0x12)), (21, 21))   # 20 trozos de 28 y uno de 16
+        self.assertEqual([t[1] for t in normal[-2:]], [28, 16])
+        self.assertEqual([t[2] for t in normal], list(range(21)))
+        self.assertEqual(b"".join(t[3:3 + t[1]] for t in normal)[121 * 4:121 * 4 + 4].hex(" "), "06 00 00 01")
+        self.assertEqual(ordenes[:len(macros)], [0x09] * len(macros))  # las macros, lo primero
+        self.assertEqual(macros[-1][1], ak820.longitud_macros([ak820.eventos_texto("hola")]) % 28)
+        self.assertEqual(ak820.cargar_teclas()["normal"]["repag"], {"destino": "b"})
+
+    def test_colores_e_imagen_no(self):
+        codigo, salida = self.orden("colores", "avpag=FF0000")
+        self.assertEqual(codigo, 1)
+        self.assertIn("solo se pueden cambiar por cable", salida)
+        codigo, salida = self.orden("imagen", "prueba")
+        self.assertEqual(codigo, 1)
+        self.assertIn("solo se puede cambiar por cable", salida)
+        self.assertEqual(self.rx.tramas, [])
+
+    def test_buscar(self):
+        codigo, salida = self.orden("buscar")
+        self.assertEqual(codigo, 0)
+        self.assertIn("receptor 2.4G", salida)
+
+
+class ReceptorSinTeclado(ConTecladoFalso):
+    receptor = staticmethod(lambda: ReceptorFalso(sin_respuesta=True))
+
+    def test_sin_respuesta(self):
+        codigo, salida = self.orden("luces", "fijo")
+        self.assertEqual(codigo, 1)
+        self.assertIn("no ha confirmado", salida)
+        self.assertEqual(len(self.rx.tramas), 3)                       # lo intenta 3 veces
+
+
 class OtrasOrdenes(ConTecladoFalso):
     def test_sistema(self):
         codigo, _ = self.orden("sistema", "--fn-modo", "alternar")
@@ -349,12 +443,16 @@ class HoraAlConectar(unittest.TestCase):
             app = ak820_app.AppAK820()
             llamadas = []
             app.ejecutar = lambda _titulo, argumentos, **_kw: llamadas.append(argumentos) or True
-            for conectado, modo, esperadas in [(False, "reloj", 0), (True, "reloj", 1), (True, "reloj", 1),
-                                               (False, "reloj", 1), (True, "imagen", 1)]:
+            for cable, receptor, modo, esperadas, estado in [
+                    (False, False, "reloj", 0, "sin conectar"), (True, False, "reloj", 1, "por cable"),
+                    (True, False, "reloj", 1, "por cable"), (False, False, "reloj", 1, "sin conectar"),
+                    (True, False, "imagen", 1, "por cable"), (False, True, "reloj", 2, "receptor 2.4G")]:
                 ak820.guardar_modo_pantalla(modo)
-                with mock.patch.object(ak820, "buscar_interfaz", lambda *_a: {"path": b"x"} if conectado else None):
+                with mock.patch.object(ak820, "buscar_interfaz", lambda *_a, c=cable: {"path": b"x"} if c else None), \
+                     mock.patch.object(ak820, "buscar_receptor", lambda r=receptor: {"path": b"rx"} if r else None):
                     app.vigilar(None)
                 self.assertEqual(len(llamadas), esperadas)
+                self.assertIn(estado, app.item_estado.title)
             self.assertEqual(llamadas[0], [["reloj"]])
 
 
@@ -437,7 +535,7 @@ class Editor(ConTecladoFalso):
         respuesta = json.loads(self.pedir("/api/reloj", {})[1])
         self.assertEqual((respuesta["ok"], respuesta["pantalla"]), (True, "reloj"))
         conexion = json.loads(self.pedir("/api/conexion")[1])
-        self.assertEqual((conexion["conectado"], conexion["ocupado"]), (True, False))
+        self.assertEqual((conexion["conexion"], conexion["ocupado"]), ("cable", False))
 
     def test_colores(self):
         colores = {"fondo": "#000010", "teclas": {"avpag": "ff0000", "fn": "00FF00"}, "brillo": 4}

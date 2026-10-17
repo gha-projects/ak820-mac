@@ -192,6 +192,8 @@
           <button type="button" class="boton principal" id="enviar-colores">Enviar al teclado</button>
           <button type="button" class="boton" id="deshacer-colores">Deshacer cambios</button>
         </div>
+        <p class="nota" id="solo-cable-colores" hidden>⚠︎ Con el receptor 2.4G no se pueden mandar los colores
+          tecla a tecla: conecta el teclado por cable. Los que ya tiene se quedan guardados.</p>
         <p class="estado-linea" id="estado-colores"></p>
       </div>
       <div class="botones"><button type="button" class="boton" id="apagar-luces">Apagar las luces</button></div>
@@ -213,6 +215,8 @@
           <button type="button" class="boton" id="elegir">Elegir imagen o GIF…</button>
           <button type="button" class="boton principal" id="enviar-imagen" disabled>Enviar a la pantalla</button>
         </div>
+        <p class="nota" id="solo-cable-pantalla" hidden>⚠︎ Con el receptor 2.4G no se pueden mandar imágenes:
+          conecta el teclado por cable. (Volver al reloj sí funciona.)</p>
         <progress id="progreso" max="100" value="0" hidden></progress>
         <div class="botones">
           <button type="button" class="boton" id="volver-reloj">Volver al reloj y ponerlo en hora</button>
@@ -749,8 +753,7 @@ async function vigilarConexion() {
   const c = document.getElementById("conexion");
   try {
     const r = await api("/api/conexion");
-    c.textContent = r.conectado ? "Conectado por cable" : "Sin conectar por cable";
-    c.className = "conexion " + (r.conectado ? "si" : "no");
+    ponerConexion(r.conexion);
     if (r.progreso != null) document.getElementById("progreso").value = r.progreso;
   } catch (e) {
     c.textContent = "Ventana sin conexión con la app";
@@ -758,6 +761,18 @@ async function vigilarConexion() {
   }
 }
 setInterval(vigilarConexion, 3000);
+
+// Por el receptor 2.4G no se pueden mandar ni imágenes ni colores tecla a tecla.
+let modoConexion = null;
+function ponerConexion(modo) {
+  const c = document.getElementById("conexion");
+  c.textContent = { cable: "Conectado por cable", "2.4g": "Conectado con el receptor 2.4G" }[modo] || "Sin conectar";
+  c.className = "conexion " + (modo ? "si" : "no");
+  if (modo !== modoConexion) {
+    modoConexion = modo;
+    if (catalogo) { dibujarPantalla(); dibujarPintor(); }
+  }
+}
 
 // --- Luces ---------------------------------------------------------------------------------------
 const NOMBRE_EFECTO = { fijo: "Fijo", respirar: "Respirar", espectro: "Espectro", rodar: "Ola", ondas: "Ondas",
@@ -955,6 +970,8 @@ function dibujarPintor() {
   document.getElementById("pintura-brillo-valor").textContent = `${colores.brillo} de 5`;
   const cambios = hayCambiosColores() || (luces.efecto === "personal" && ultimoEfectoEnviado !== "personal");
   document.getElementById("deshacer-colores").disabled = !hayCambiosColores();
+  document.getElementById("solo-cable-colores").hidden = modoConexion !== "2.4g";
+  document.getElementById("enviar-colores").disabled = modoConexion === "2.4g";
   document.getElementById("estado-colores").textContent = hayCambiosColores() ? "Hay cambios sin enviar." : "";
   document.getElementById("enviar-colores").textContent = cambios ? "Enviar al teclado" : "Reenviar al teclado";
 }
@@ -1022,7 +1039,8 @@ function dibujarPantalla() {
   document.getElementById("estado-pantalla").textContent =
     (modoPantalla === "imagen" ? "Ahora enseña una imagen o un GIF." : "Ahora enseña el reloj.") +
     (archivoElegido ? ` Elegido: ${archivoElegido.name}.` : "");
-  document.getElementById("enviar-imagen").disabled = !archivoElegido || enviandoImagen;
+  document.getElementById("solo-cable-pantalla").hidden = modoConexion !== "2.4g";
+  document.getElementById("enviar-imagen").disabled = !archivoElegido || enviandoImagen || modoConexion === "2.4g";
   document.getElementById("volver-reloj").disabled = enviandoImagen;
   document.getElementById("elegir").disabled = enviandoImagen;
 }
@@ -1155,9 +1173,7 @@ function aplicarEstado(r, primeraVez) {
   if (!coloresGuardados || !hayCambiosColores()) { coloresGuardados = r.colores; colores = copia(r.colores); }
   if (!enviandoImagen) modoPantalla = r.pantalla;
   if (!ajustes || igual(ajustes, ajustesGuardados)) { ajustesGuardados = r.ajustes; ajustes = copia(r.ajustes); }
-  const c = document.getElementById("conexion");
-  c.textContent = r.conectado ? "Conectado por cable" : "Sin conectar por cable";
-  c.className = "conexion " + (r.conectado ? "si" : "no");
+  ponerConexion(r.conexion);
   dibujarTeclado();
   dibujarLuces();
   dibujarPantalla();

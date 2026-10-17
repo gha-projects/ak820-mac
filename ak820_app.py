@@ -111,8 +111,8 @@ def resumen(salida, codigo, solo_ultima=False, completo=False):
               and not l.startswith("(Cada vez")]
     if codigo != 0 and any(aviso in l for l in lineas
                            for aviso in ("No encuentro el teclado", "No veo ningún", "No aparece la interfaz")):
-        return ("No encuentro el teclado por cable. Conéctalo con el cable USB-C y ponlo en modo "
-                "cable: por Bluetooth o 2.4G no se puede configurar.")
+        return ("No encuentro el teclado. Conéctalo con el cable USB-C o con el receptor 2.4G "
+                "(por Bluetooth no se puede configurar).")
     if solo_ultima:
         lineas = lineas[-1:]
     elif not completo:
@@ -159,7 +159,7 @@ class AppAK820(rumps.App):
         self.candado = threading.Lock()
         self.mensajes = queue.Queue()      # (título, mensaje, bien, avisar) que dejan los hilos
         self.preferencias = cargar_preferencias()
-        self.conectado = None               # None hasta la primera comprobación
+        self.conectado = False              # "cable", "2.4g", None (sin conectar); False = sin mirar aún
         self.reloj_pendiente = False        # poner la hora en cuanto el teclado esté libre
         self.hilo = None
         self.progreso = None                # % de la imagen que se está enviando
@@ -370,16 +370,18 @@ class AppAK820(rumps.App):
                 ventana(titulo, mensaje)
 
     def vigilar(self, _):
-        """Temporizador: ve si el teclado está conectado por cable y, al conectarlo, pone la hora."""
+        """Temporizador: ve si el teclado está conectado (por cable o con el receptor 2.4G) y,
+        al conectarlo, pone la hora."""
         try:
-            conectado = ak820.buscar_interfaz() is not None
+            conectado = ("cable" if ak820.buscar_interfaz() is not None
+                         else "2.4g" if ak820.buscar_receptor() is not None else None)
         except Exception:                    # hidapi puede fallar un instante al (des)conectar
             return
         if conectado != self.conectado:
             self.conectado = conectado
-            self.item_estado.title = ("Teclado: conectado por cable ✓" if conectado
-                                      else "Teclado: sin conectar por cable")
-            self.reloj_pendiente = conectado
+            self.item_estado.title = {"cable": "Teclado: conectado por cable ✓",
+                                      "2.4g": "Teclado: con el receptor 2.4G ✓"}.get(conectado, "Teclado: sin conectar")
+            self.reloj_pendiente = conectado is not None
         if self.reloj_pendiente and not self.candado.locked():
             self.reloj_pendiente = False
             if self.preferencias["hora_al_conectar"] and ak820.modo_pantalla() == "reloj":

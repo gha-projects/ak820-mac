@@ -32,8 +32,8 @@ PROGRESO = re.compile(r"(\d+) % enviado")
 COLOR = re.compile(r"^[0-9A-Fa-f]{6}$")
 BLOQUEOS = ("win", "altf4", "alttab")
 OCUPADO = "Espera: hay otra operación en curso con el teclado."
-SIN_TECLADO = ("No encuentro el teclado por cable. Conéctalo con el cable USB-C y ponlo en modo "
-               "cable: por Bluetooth o 2.4G no se puede configurar.")
+SIN_TECLADO = ("No encuentro el teclado. Conéctalo con el cable USB-C o con el receptor 2.4G "
+               "(por Bluetooth no se puede configurar).")
 
 
 class Ocupado(Exception):
@@ -75,11 +75,16 @@ def catalogo():
     }
 
 
-def conectado():
+def conexion():
+    """"cable", "2.4g" (con el receptor) o None."""
     try:
-        return ak820.buscar_interfaz() is not None
+        if ak820.buscar_interfaz() is not None:
+            return "cable"
+        if ak820.buscar_receptor() is not None:
+            return "2.4g"
     except Exception:                              # hidapi puede fallar un instante al (des)conectar
-        return False
+        pass
+    return None
 
 
 def ajustes_para_pagina():
@@ -340,9 +345,9 @@ class Manejador(BaseHTTPRequestHandler):
             return self.responder(200, {
                 "distribucion": distribucion, "config": ak820.cargar_teclas(), "catalogo": catalogo(),
                 "luces": ak820.cargar_luces(), "colores": ak820.cargar_colores(), "pantalla": ak820.modo_pantalla(),
-                "ajustes": ajustes_para_pagina(), "conectado": conectado()})
+                "ajustes": ajustes_para_pagina(), "conexion": conexion()})
         if ruta == "/api/conexion":
-            return self.responder(200, {"conectado": conectado(), "ocupado": editor.candado.locked(),
+            return self.responder(200, {"conexion": conexion(), "ocupado": editor.candado.locked(),
                                         "progreso": editor.progreso})
         self.responder(404, {"error": "no existe"})
 

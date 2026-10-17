@@ -181,6 +181,14 @@ python3 ak820.py reloj                       # volver al reloj (o salir de "load
 
 Cómo se descubrió (y todo lo que no funcionó por el camino) en [docs/pantalla.md](docs/pantalla.md).
 
+## Sin cable: el receptor 2.4G
+
+Si el teclado está en modo 2.4G con su receptor, `ak820.py` (y la app) lo usan solos
+cuando no hay cable: luces, teclas, macros, ajustes y la hora. Los colores tecla a tecla
+y la imagen de la pantalla solo van por cable. Si no contesta, el teclado se habrá
+dormido: pulsa una tecla. Por Bluetooth no se puede configurar. Detalles en
+[docs/receptor-24g.md](docs/receptor-24g.md).
+
 ## Pruebas automáticas
 
 ```
@@ -194,9 +202,8 @@ conectado ni se toca nada. Las pruebas hechas con el teclado de verdad están en
 
 ## Próximos pasos
 
-Todo lo previsto funciona. Ideas en marcha: poner la hora sola al conectar el teclado,
-una app de verdad (`AK820.app`), luces y pantalla en el editor, iluminación tecla a
-tecla y configurar por el receptor 2.4G.
+Todo lo previsto funciona. Queda como idea el modo música (luces al ritmo del sonido;
+el receptor tiene su orden, `0B`, pero en Mac hay que capturar el audio del sistema).
 
 ## Créditos
 
